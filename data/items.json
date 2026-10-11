@@ -1,0 +1,26 @@
+{
+  "_help": "dims = [length, width, height] in cm, as packed. kg per piece. conf = low | med | high | measured. flags: upright, noRotate, floor, noTop, fragile, flex, nice, exclude. Optional: maxTop (kg allowed on top), guess (old estimate kept after measuring).",
+  "items": [
+    { "id": "vitrine-base", "name": "Vitrine Unterteil", "group": "Vitrine", "qty": 1, "dims": [150, 50, 95], "kg": 75, "conf": "low", "flags": ["upright", "floor"], "note": "two-part cabinet from photo, lower buffet part" },
+    { "id": "vitrine-top", "name": "Vitrine Oberteil (Glas)", "group": "Vitrine", "qty": 1, "dims": [150, 40, 120], "kg": 55, "conf": "low", "flags": ["upright", "fragile", "noTop"], "note": "glass doors" },
+    { "id": "bed-base", "name": "Boxspring-Unterteil", "group": "Bett", "qty": 2, "dims": [200, 90, 30], "kg": 35, "conf": "low", "note": "box-spring 180x200 (confirmed) = 2 bases of 90x200" },
+    { "id": "bed-mattress", "name": "Matratze", "group": "Bett", "qty": 2, "dims": [200, 90, 25], "kg": 25, "conf": "low", "note": "assumed 2 mattresses of 90x200 (box-spring confirmed)" },
+    { "id": "bed-headboard", "name": "Kopfende", "group": "Bett", "qty": 1, "dims": [185, 12, 130], "kg": 20, "conf": "med", "flags": ["fragile"], "note": "upholstered headboard" },
+    { "id": "table-top", "name": "Esstisch Platte", "group": "Esstisch", "qty": 1, "dims": [200, 100, 5], "kg": 60, "conf": "low", "note": "solid wood live-edge top" },
+    { "id": "table-legs", "name": "Esstisch Gestell", "group": "Esstisch", "qty": 1, "dims": [90, 20, 75], "kg": 20, "conf": "low", "note": "two metal leg frames bundled" },
+    { "id": "dining-chair", "name": "Esszimmerstuhl", "group": "Esszimmer", "qty": 4, "dims": [60, 58, 85], "kg": 7, "conf": "med", "maxTop": 10, "note": "upholstered armchair" },
+    { "id": "piano-keys", "name": "Digitalpiano Tastatur", "group": "Klavier", "qty": 1, "dims": [140, 35, 15], "kg": 12, "conf": "low", "flags": ["fragile"], "note": "digital piano, keyboard part (confirmed); whole piano ~20 kg" },
+    { "id": "piano-stand", "name": "Digitalpiano Ständer", "group": "Klavier", "qty": 1, "dims": [135, 35, 75], "kg": 8, "conf": "low", "note": "detachable stand (confirmed)" },
+    { "id": "piano-bench", "name": "Klavierbank", "group": "Klavier", "qty": 1, "dims": [60, 35, 50], "kg": 8, "conf": "med" },
+    { "id": "desk", "name": "Schreibtisch (zerlegt)", "group": "Arbeitsplatz", "qty": 2, "dims": [140, 70, 15], "kg": 45, "conf": "low", "note": "top + frame bundled; standing desk frames are heavy" },
+    { "id": "monitor", "name": "Monitor (Karton)", "group": "Arbeitsplatz", "qty": 2, "dims": [70, 20, 50], "kg": 7, "conf": "med", "flags": ["fragile"] },
+    { "id": "office-chair", "name": "Bürostuhl", "group": "Arbeitsplatz", "qty": 2, "dims": [70, 70, 115], "kg": 15, "conf": "med", "flags": ["upright", "noTop"] },
+    { "id": "fireplace", "name": "Kaminofen / Kaminschrank", "group": "Wohnen", "qty": 1, "dims": [50, 40, 80], "kg": 25, "conf": "low", "flags": ["upright"], "note": "listed as Kamin-Werkzeuge; photo shows a stove-like cabinet" },
+    { "id": "plant-large", "name": "Pflanze groß", "group": "Pflanzen", "qty": 1, "dims": [60, 60, 180], "kg": 35, "conf": "low", "flags": ["upright", "noTop", "fragile"] },
+    { "id": "plant-medium", "name": "Pflanze mittel", "group": "Pflanzen", "qty": 1, "dims": [45, 45, 120], "kg": 15, "conf": "low", "flags": ["upright", "noTop", "fragile"] },
+    { "id": "rug-small", "name": "Teppich klein (gerollt)", "group": "Teppiche", "qty": 1, "dims": [130, 25, 25], "kg": 5, "conf": "med", "flags": ["flex"] },
+    { "id": "rug-medium", "name": "Teppich mittel (gerollt)", "group": "Teppiche", "qty": 1, "dims": [200, 30, 30], "kg": 10, "conf": "med" },
+    { "id": "bike", "name": "Fahrrad", "group": "Fahrräder", "qty": 2, "dims": [180, 25, 105], "kg": 15, "conf": "med", "flags": ["upright", "noTop"], "note": "handlebar turned, pedals off" },
+    { "id": "box", "name": "Umzugskarton", "group": "Kartons", "qty": 50, "dims": [60, 33, 34], "kg": 15, "conf": "med", "maxTop": 75, "note": "standard moving box; weight is an average guess" }
+  ]
+}

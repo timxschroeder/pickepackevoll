@@ -1,0 +1,4 @@
+{
+  "_help": "User rules: original sentence in 'text' + structured 'rules'. target: { items: [ids] } | { groups: [names] } | { tags: [...] }. rule types: onFloor, upright, noRotate, noLoadOnTop, maxLoadOnTop {kg}, zone {end: cab|door, withinCm}, loadGroup {n} (1 = loaded first, cab end), exclude, flex. 'hard': false makes a zone a preference instead of a must.",
+  "constraints": []
+}

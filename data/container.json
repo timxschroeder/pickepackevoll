@@ -1,0 +1,17 @@
+{
+  "name": "Transporter 3.5 t, box body (8 Euro pallets)",
+  "conf": "measured",
+  "note": "Rental spec, minimum load space: 4370 × 2100 × 2250 mm, payload 815 kg, loading edge 1000 mm high. Box body = flat floor, no wheel arches inside. Door opening not in the spec: assumed 200 × 215 cm.",
+  "interior": [437, 210, 225],
+  "payloadKg": 815,
+  "door": [200, 215],
+  "obstacles": [],
+  "packing": {
+    "clearanceCm": 1,
+    "minSupport": 0.75,
+    "estimateMarginPct": { "low": 5, "med": 3, "high": 0, "measured": 0 },
+    "iterations": 80,
+    "seed": 1,
+    "minGapCm": 15
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "name": "pickepackevoll",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node serve.mjs",
+    "pack": "node tools/pack.mjs"
+  },
+  "dependencies": {
+    "three": "0.180.0"
+  }
+}
