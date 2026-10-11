@@ -7,7 +7,7 @@ Van-packing tool for a move Hamburg → Zürich in a rented VW Crafter. Design: 
 - Report: `npm run pack` (= `node tools/pack.mjs`) prints stats, unplaced items with reasons, warnings and a diff to the previous run; writes `out/plan.json`.
 
 ## Data (the only files that change during normal use)
-- `data/items.json` – one item per line. `dims` = [length, width, height] cm **as packed** (furniture taken apart = several items with the same `group`). `kg` per piece. `conf` = low | med | high | measured. `flags` ⊂ upright, noRotate, floor, noTop, fragile, flex, nice, exclude. Optional `maxTop` (kg), `note`, `guess`.
+- `data/items.json` – one item per line. `dims` = [length, width, height] cm **as packed** (furniture taken apart = several items with the same `group`). `kg` per piece. `conf` = low | med | high | measured. `flags` ⊂ upright, noRotate, floor, noTop, fragile, flex, nice, exclude. Optional `maxTop` (kg, total weight resting on it), `minSupport` (0–1), `maxHeight` (cm, top edge), `note`, `guess`.
 - `data/constraints.json` – rules the user stated in words. Keep the original sentence in `text`.
 - `data/container.json` – van interior, door, wheel arches, payload, packing parameters.
 - Keep the one-entry-per-line format (same as `src/format.js` writes, which the page uses on save).

@@ -78,6 +78,8 @@ export function resolveItems(itemsRaw, constraintsRaw) {
       fragile: flags.has('fragile'), flex: flags.has('flex'), exclude: flags.has('exclude'),
       priority: flags.has('nice') ? 'nice' : 'must',
       maxTop: it.maxTop ?? Infinity,
+      minSupport: it.minSupport, // share of the base that must rest on something; default from container.packing
+      maxHeight: it.maxHeight, // cm, highest allowed top edge (e.g. keep boxes low enough for bikes on top)
       zone: null, loadGroup: null, constraintIds: [],
     };
     if (flags.has('noTop')) r.maxTop = 0;

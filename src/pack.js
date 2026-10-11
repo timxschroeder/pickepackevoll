@@ -38,7 +38,7 @@ function zoneViolation(zone, b, C) {
 function describeLimits(it) {
   const s = [];
   if (it.floor) s.push('on the floor');
-  if (it.upright) s.push('upright');
+  if (it.upright) s.push('not tipped over');
   if (it.noRotate) s.push('no rotation');
   if (it.zone?.hard) s.push(`within ${it.zone.withinCm} cm of the ${it.zone.end}`);
   return s.length ? ` (must be ${s.join(', ')})` : '';
@@ -91,6 +91,20 @@ const POLICIES = {
   tall: (a, b) => a.dx - b.dx || b.dz - a.dz,
   flat: (a, b) => a.dz - b.dz || a.dx - b.dx,
 };
+
+// Weight travels down the stack: each piece passes its share on to whatever it rests on, so
+// maxTop limits the total weight above an item, not just the piece directly on it.
+// `extra` collects the added load per item (also used to apply it after placing).
+function loadFits(down, kg, extra) {
+  for (const [o, f] of down) {
+    const w = kg * f;
+    const total = (extra.get(o) ?? 0) + w;
+    if (o.load + total > o.maxTop + EPS) return false;
+    extra.set(o, total);
+    if (o.down && !loadFits(o.down, w, extra)) return false;
+  }
+  return true;
+}
 
 const lexLess = (a, b) => {
   for (let i = 0; i < a.length; i++) if (Math.abs(a[i] - b[i]) > 1e-9) return a[i] < b[i];
@@ -170,6 +184,7 @@ function packOnce(order, C, policyName, runMode) {
     const b = { x: p.x, y: p.y, z: p.z, dx: r.d[0], dy: r.d[1], dz: r.d[2] };
     if (b.x + b.dx > C.L + EPS || b.y + b.dy > C.W + EPS || b.z + b.dz > C.H + EPS) return null;
     if (it.floor && b.z > EPS) return null;
+    if (it.maxHeight != null && b.z + b.dz > it.maxHeight + EPS) return null;
     if (it.zone?.hard && zoneViolation(it.zone, b, C) > EPS) return null;
     for (const o of boxes) if (boxesOverlap(b, o)) return null;
     const supporters = [];
@@ -180,14 +195,13 @@ function packOnce(order, C, policyName, runMode) {
         const a = footprintOverlap(b, o);
         if (a > 0) { supporters.push([o, a]); sup += a; }
       }
-      if (sup < C.packing.minSupport * b.dx * b.dy) return null;
-      for (const [o, a] of supporters) {
-        if (o.maxTop <= 0) return null;
-        if (o.load + (it.kg * a) / sup > o.maxTop + EPS) return null;
-      }
-      return { b, rot: r.rot, supporters, sup };
+      if (sup < (it.minSupport ?? C.packing.minSupport) * b.dx * b.dy) return null;
+      if (supporters.some(([o]) => o.maxTop <= 0)) return null;
+      const down = supporters.map(([o, a]) => [o, a / sup]);
+      if (!loadFits(down, it.kg, new Map())) return null;
+      return { b, rot: r.rot, supporters, down };
     }
-    return { b, rot: r.rot, supporters, sup: 0 };
+    return { b, rot: r.rot, supporters, down: [] };
   };
 
   for (const inst of order) {
@@ -229,11 +243,11 @@ function packOnce(order, C, policyName, runMode) {
       unplaced.push({ inst, reason: 'no-space', detail: `no free spot${describeLimits(it)}` });
       continue;
     }
-    const pl = { ...best.b, inst, rot: best.rot, load: 0, maxTop: it.maxTop, supporters: [] };
-    for (const [o, a] of best.supporters) {
-      o.load += (it.kg * a) / best.sup;
-      if (!o.obstacle) pl.supporters.push(o);
-    }
+    const pl = { ...best.b, inst, rot: best.rot, load: 0, maxTop: it.maxTop, down: best.down, supporters: [] };
+    const added = new Map();
+    loadFits(best.down, it.kg, added);
+    for (const [o, w] of added) o.load += w;
+    for (const [o] of best.supporters) if (!o.obstacle) pl.supporters.push(o);
     boxes.push(pl);
     placed.push(pl);
     addPoints(pl);
