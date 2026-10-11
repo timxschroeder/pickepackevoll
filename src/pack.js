@@ -4,6 +4,7 @@ import { CONF } from './model.js';
 
 const EPS = 0.01;
 const VOXEL = 5; // cm, resolution of the free-gap search
+const CAB_PULL = 0.3; // contact mode: weight of "close to the cab" (tested 0.3–4: no better)
 const BAG_LITRES = 70;
 const BAG_MIN_GAP_CM = 25;
 
@@ -96,7 +97,7 @@ const lexLess = (a, b) => {
   return false;
 };
 
-function packOnce(order, C, policyName, mode) {
+function packOnce(order, C, policyName, runMode) {
   const policy = POLICIES[policyName];
   const boxes = C.obstacles.map((o) => ({ ...o, obstacle: true, maxTop: Infinity, load: 0 }));
   const placed = [];
@@ -192,6 +193,8 @@ function packOnce(order, C, policyName, mode) {
   for (const inst of order) {
     const it = inst.item;
     const capped = it.maxTop <= 5;
+    // Optional items (boxes) fill up from the cab, on top of whatever is there, so free space collects at the door
+    const mode = it.priority === 'nice' ? 'x' : runMode;
     let best = null, bestKey = null;
     for (const p of eps) {
       if (mode === 'contact') {
@@ -201,7 +204,7 @@ function packOnce(order, C, policyName, mode) {
           if (!c) continue;
           const pen = it.zone ? (zoneViolation(it.zone, c.b, C) * 5) / C.L : 0;
           const waste = capped ? (0.3 * (C.H - c.b.z - c.b.dz)) / C.H : 0;
-          const key = [-contactFraction(c.b) + (0.3 * (c.b.x + c.b.dx)) / C.L + waste + pen, c.b.z, c.b.x];
+          const key = [-contactFraction(c.b) + (CAB_PULL * (c.b.x + c.b.dx)) / C.L + waste + pen, c.b.z, c.b.x];
           if (!best || lexLess(key, bestKey)) { best = c; bestKey = key; }
         }
         continue;
