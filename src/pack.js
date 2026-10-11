@@ -55,15 +55,18 @@ function preCheck(inst, C) {
   return null;
 }
 
+// Hard packing tiers: load group first, then must-have before optional items ("furniture first,
+// boxes last"). Reordering during the search never crosses a tier boundary.
+const tier = (inst) => (inst.item.loadGroup ?? 50) * 2 + (inst.item.priority === 'must' ? 0 : 1);
+
 function baseKey(inst, noTopLate) {
   const it = inst.item;
   return [
-    it.loadGroup ?? 50,
+    tier(inst),
     it.zone?.end === 'cab' ? 0 : it.zone?.end === 'door' ? 2 : 1,
     it.floor ? 0 : 1,
     // nothing can go on top: placing it late lets it end up on top of stacks or at the door
     noTopLate && it.maxTop === 0 ? 1 : 0,
-    it.priority === 'must' ? 0 : 1,
   ];
 }
 
@@ -338,11 +341,12 @@ export function pack(model) {
     const order = [...best.order];
     for (const u of best.unplaced) {
       const i = order.indexOf(u.inst);
+      const first = order.findIndex((o) => tier(o) === tier(u.inst));
       order.splice(i, 1);
-      order.splice(Math.floor(rand() * rand() * i), 0, u.inst);
+      order.splice(first + Math.floor(rand() * rand() * (i - first)), 0, u.inst);
     }
     const a = Math.floor(rand() * order.length), b = Math.floor(rand() * order.length);
-    [order[a], order[b]] = [order[b], order[a]];
+    if (tier(order[a]) === tier(order[b])) [order[a], order[b]] = [order[b], order[a]];
     const mode = rand() < 0.75 ? best.mode : modes[Math.floor(rand() * modes.length)];
     tryRun(order, best.policy, mode, `${best.policy}/${mode}/improved`);
   }

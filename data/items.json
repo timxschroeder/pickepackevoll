@@ -21,6 +21,6 @@
     { "id": "rug-small", "name": "Teppich klein (gerollt)", "group": "Teppiche", "qty": 1, "dims": [130, 25, 25], "kg": 5, "conf": "med", "flags": ["flex"] },
     { "id": "rug-medium", "name": "Teppich mittel (gerollt)", "group": "Teppiche", "qty": 1, "dims": [200, 30, 30], "kg": 10, "conf": "med" },
     { "id": "bike", "name": "Fahrrad", "group": "Fahrräder", "qty": 2, "dims": [180, 25, 105], "kg": 15, "conf": "med", "flags": ["upright", "noTop"], "note": "handlebar turned, pedals off" },
-    { "id": "box", "name": "Umzugskarton", "group": "Kartons", "qty": 50, "dims": [60, 33, 34], "kg": 15, "conf": "med", "maxTop": 75, "note": "standard moving box; weight is an average guess" }
+    { "id": "box", "name": "Umzugskarton", "group": "Kartons", "qty": 30, "dims": [60, 33, 34], "kg": 10, "conf": "med", "maxTop": 50, "note": "standard moving box; ~30 boxes at ~10 kg (user estimate)" }
   ]
 }

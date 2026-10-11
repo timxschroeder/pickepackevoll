@@ -3,7 +3,7 @@
 
 export const FLAGS = ['upright', 'noRotate', 'floor', 'noTop', 'fragile', 'flex', 'nice', 'exclude'];
 export const CONF = { low: 0.2, med: 0.1, high: 0.03, measured: 0 }; // relative size uncertainty
-export const RULES = ['onFloor', 'upright', 'noRotate', 'noLoadOnTop', 'maxLoadOnTop', 'zone', 'loadGroup', 'exclude', 'flex'];
+export const RULES = ['onFloor', 'upright', 'noRotate', 'noLoadOnTop', 'maxLoadOnTop', 'zone', 'loadGroup', 'exclude', 'flex', 'optional'];
 const FRAGILE_MAX_TOP_KG = 5;
 
 const PACKING_DEFAULTS = {
@@ -95,6 +95,7 @@ export function resolveItems(itemsRaw, constraintsRaw) {
           case 'loadGroup': r.loadGroup = rule.n; break;
           case 'exclude': r.exclude = true; break;
           case 'flex': r.flex = true; break;
+          case 'optional': r.priority = 'nice'; break;
         }
       }
     }
