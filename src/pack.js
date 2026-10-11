@@ -4,6 +4,8 @@ import { CONF } from './model.js';
 
 const EPS = 0.01;
 const VOXEL = 5; // cm, resolution of the free-gap search
+const BAG_LITRES = 70;
+const BAG_MIN_GAP_CM = 25;
 
 function mulberry32(seed) {
   let a = seed >>> 0;
@@ -386,6 +388,8 @@ export function pack(model) {
   }
   const usedLen = best.placed.reduce((m, p) => Math.max(m, p.x + p.dx), 0);
   const gapVol = gaps.reduce((s, g) => s + g.vol, 0);
+  // Soft bags (70 l, e.g. IKEA Frakta) need gaps of at least ~25 cm; fill at 85%, after flexible items
+  const bagSpace = gaps.filter((g) => Math.min(g.dx, g.dy, g.dz) >= BAG_MIN_GAP_CM).reduce((s, g) => s + g.left, 0);
   const m3 = (v) => Math.round(v / 1e4) / 100;
 
   const stats = {
@@ -399,6 +403,8 @@ export function pack(model) {
     rigidPct: Math.round((placedVol / usable) * 1000) / 10,
     flexM3: m3(flexVol),
     gapM3: m3(gapVol),
+    bags: Math.floor(bagSpace / (BAG_LITRES * 1000)),
+    bagLitres: BAG_LITRES,
     loadedKg: Math.round(placedKg),
     allKg: Math.round(allKg),
     payloadKg: C.payloadKg,

@@ -24,6 +24,7 @@ export function formatReport(plan) {
   L.push(`Placed ${s.placed}/${s.pieces} pieces · ${s.placedM3} of ${s.usableM3} m³ (${s.volumePct}%) · all items ${s.allM3} m³`);
   L.push(`Weight loaded ${s.loadedKg} kg / payload ${s.payloadKg} kg · everything ${s.allKg} kg`);
   L.push(`Free length at door ${s.freeLengthCm} cm · flexible goods ${s.flexM3} m³ in ${s.gapM3} m³ of gaps`);
+  L.push(`Room left for about ${s.bags} soft bags of ${s.bagLitres} l in the gaps`);
   if (s.cog) L.push(`Centre of gravity x=${s.cog[0]} y=${s.cog[1]} z=${s.cog[2]} cm`);
   if (plan.unplaced.length) {
     L.push('', 'NOT PLACED');
@@ -52,7 +53,7 @@ export function formatDiff(prev, plan) {
     const v = Math.round((b[k] - a[k]) * 100) / 100;
     if (v) L.push(`  ${k}: ${a[k]}${unit} → ${b[k]}${unit} (${v > 0 ? '+' : ''}${v}${unit})`);
   };
-  d('placed'); d('volumePct', '%'); d('loadedKg', ' kg'); d('freeLengthCm', ' cm'); d('gapM3', ' m³');
+  d('placed'); d('volumePct', '%'); d('loadedKg', ' kg'); d('freeLengthCm', ' cm'); d('gapM3', ' m³'); d('bags');
   const was = new Set(prev.unplaced.map((u) => u.uid)), now = new Set(plan.unplaced.map((u) => u.uid));
   const newly = [...now].filter((u) => !was.has(u)), fixed = [...was].filter((u) => !now.has(u));
   if (newly.length) L.push(`  newly unplaced: ${newly.join(', ')}`);

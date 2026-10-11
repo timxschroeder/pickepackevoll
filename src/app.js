@@ -148,7 +148,7 @@ function renderStats() {
     stat('Volume used', `${s.volumePct}% <span class="muted" style="font-size:12px;font-weight:400">${s.placedM3} / ${s.usableM3} m³</span>`),
     stat('Weight / payload', `${s.loadedKg} / ${s.payloadKg} kg`, over ? 'bad' : ''),
     stat('Free at door', `${s.freeLengthCm} cm`),
-    stat('Flexible / gaps', `${s.flexM3} / ${s.gapM3} m³`),
+    stat('Room for bags', `≈ ${s.bags} <span class="muted" style="font-size:12px;font-weight:400">× ${s.bagLitres} l · gaps ${s.gapM3} m³</span>`),
   ].join('');
 }
 
