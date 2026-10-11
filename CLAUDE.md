@@ -19,6 +19,9 @@ Van-packing tool for a move Hamburg → Zürich in a rented VW Crafter. Design: 
 - After every data change: run `npm run pack` and report the essentials (placed, unplaced + reasons, weight vs payload, notable diff).
 - Rule types: onFloor, upright, noRotate, noLoadOnTop, maxLoadOnTop {kg}, zone {end: cab|door, withinCm}, loadGroup {n} (1 = loaded first), exclude, flex.
 
+## Version control
+- Commit after every step and iteration (code, data, docs), directly on `main`, with a descriptive message. No need to ask.
+
 ## Code map
 - `src/model.js` validate data, merge rules into items, expand quantities, rotations.
 - `src/pack.js` extreme-point packer + multi-start, gaps, flexible goods, stats. Pure JS (browser + Node).

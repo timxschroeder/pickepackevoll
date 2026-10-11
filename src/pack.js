@@ -86,6 +86,11 @@ const POLICIES = {
   flat: (a, b) => a.dz - b.dz || a.dx - b.dx,
 };
 
+const lexLess = (a, b) => {
+  for (let i = 0; i < a.length; i++) if (Math.abs(a[i] - b[i]) > 1e-9) return a[i] < b[i];
+  return false;
+};
+
 function packOnce(order, C, policyName, mode) {
   const policy = POLICIES[policyName];
   const boxes = C.obstacles.map((o) => ({ ...o, obstacle: true, maxTop: Infinity, load: 0 }));
@@ -135,6 +140,25 @@ function packOnce(order, C, policyName, mode) {
   };
   for (const o of C.obstacles) addPoints(o);
 
+  // Share of the box's surface that touches walls, floor, ceiling or other boxes (not the door side)
+  const contactFraction = (b) => {
+    let a = 0;
+    if (b.z < EPS) a += b.dx * b.dy;
+    if (b.z + b.dz > C.H - EPS) a += b.dx * b.dy;
+    if (b.x < EPS) a += b.dy * b.dz;
+    if (b.y < EPS) a += b.dx * b.dz;
+    if (b.y + b.dy > C.W - EPS) a += b.dx * b.dz;
+    for (const o of boxes) {
+      const ox = Math.min(b.x + b.dx, o.x + o.dx) - Math.max(b.x, o.x);
+      const oy = Math.min(b.y + b.dy, o.y + o.dy) - Math.max(b.y, o.y);
+      const oz = Math.min(b.z + b.dz, o.z + o.dz) - Math.max(b.z, o.z);
+      if (oy > EPS && oz > EPS && (Math.abs(b.x + b.dx - o.x) < EPS || Math.abs(o.x + o.dx - b.x) < EPS)) a += oy * oz;
+      if (ox > EPS && oz > EPS && (Math.abs(b.y + b.dy - o.y) < EPS || Math.abs(o.y + o.dy - b.y) < EPS)) a += ox * oz;
+      if (ox > EPS && oy > EPS && (Math.abs(b.z + b.dz - o.z) < EPS || Math.abs(o.z + o.dz - b.z) < EPS)) a += ox * oy;
+    }
+    return a / (2 * (b.dx * b.dy + b.dx * b.dz + b.dy * b.dz));
+  };
+
   const tryAt = (inst, p, r) => {
     const it = inst.item;
     const b = { x: p.x, y: p.y, z: p.z, dx: r.d[0], dy: r.d[1], dz: r.d[2] };
@@ -162,8 +186,21 @@ function packOnce(order, C, policyName, mode) {
 
   for (const inst of order) {
     const it = inst.item;
+    const capped = it.maxTop <= 5;
     let best = null, bestKey = null;
     for (const p of eps) {
+      if (mode === 'contact') {
+        // Best-fit: the spot touching the most walls/floor/neighbours wins, with a mild pull toward the cab
+        for (const r of inst.rots) {
+          const c = tryAt(inst, p, r);
+          if (!c) continue;
+          const pen = it.zone ? (zoneViolation(it.zone, c.b, C) * 5) / C.L : 0;
+          const waste = capped ? (0.3 * (C.H - c.b.z - c.b.dz)) / C.H : 0;
+          const key = [-contactFraction(c.b) + (0.3 * (c.b.x + c.b.dx)) / C.L + waste + pen, c.b.z, c.b.x];
+          if (!best || lexLess(key, bestKey)) { best = c; bestKey = key; }
+        }
+        continue;
+      }
       if (best && p.x > bestKey[0] + EPS) break; // EPs are sorted by x: nothing better further on
       const cands = [];
       for (const r of inst.rots) {
@@ -174,11 +211,11 @@ function packOnce(order, C, policyName, mode) {
       cands.sort((a, b) => policy(a.b, b.b));
       const c = cands[0];
       const pen = it.zone ? zoneViolation(it.zone, c.b, C) * 5 : 0;
-      const key = [(mode === 'end' ? c.b.x + c.b.dx : c.b.x) + pen, c.b.z, c.b.y];
-      if (!best || key[0] < bestKey[0] - EPS || (Math.abs(key[0] - bestKey[0]) <= EPS && (key[1] < bestKey[1] - EPS || (Math.abs(key[1] - bestKey[1]) <= EPS && key[2] < bestKey[2])))) {
-        best = c; bestKey = key;
-      }
-      if (!it.zone && mode === 'x') break; // first feasible EP in (x, z, y) order is the best one
+      // Nothing (heavy) can go on top: the space above it is lost, so count that height like distance
+      const waste = capped ? C.H - c.b.z - c.b.dz : 0;
+      const key = [(mode === 'end' ? c.b.x + c.b.dx : c.b.x) + pen + waste, c.b.z, c.b.y];
+      if (!best || lexLess(key, bestKey)) { best = c; bestKey = key; }
+      if (!it.zone && !capped && mode === 'x') break; // first feasible EP in (x, z, y) order is the best one
     }
     if (!best) {
       unplaced.push({ inst, reason: 'no-space', detail: `no free spot${describeLimits(it)}` });
@@ -281,18 +318,35 @@ export function pack(model) {
   }
 
   const rand = mulberry32(C.packing.seed);
-  const policies = Object.keys(POLICIES);
+  const policies = Object.keys(POLICIES), modes = ['x', 'end', 'contact'];
   let best = null, bestScore = null;
   const runs = Math.max(1, C.packing.iterations);
-  for (let r = 0; r < runs; r++) {
-    const noTopLate = r % 4 < 2;
-    const order = makeOrder(rigid, rand, r < 4 ? 0 : 0.8, noTopLate);
-    const policy = policies[r % policies.length];
-    const mode = r % 2 ? 'end' : 'x';
+  const tryRun = (order, policy, mode, label) => {
     const run = packOnce(order, C, policy, mode);
     const score = scorePlan(run, C);
-    if (!best || better(score, bestScore)) { best = { ...run, policy: `${policy}/${mode}${noTopLate ? '' : '/noTop-early'}` }; bestScore = score; }
+    if (!best || better(score, bestScore)) { best = { ...run, order, policy, mode, label }; bestScore = score; }
+  };
+  // Phase 1: diverse starts (strategies × orderings)
+  const starts = Math.max(1, Math.round(runs * 0.4));
+  for (let r = 0; r < starts; r++) {
+    const noTopLate = r % 4 < 2;
+    const policy = policies[r % policies.length], mode = modes[r % modes.length];
+    tryRun(makeOrder(rigid, rand, r < 6 ? 0 : 0.8, noTopLate), policy, mode, `${policy}/${mode}${noTopLate ? '' : '/noTop-early'}`);
   }
+  // Phase 2: improve the best plan: move pieces that did not fit earlier, plus a random swap
+  for (let r = starts; r < runs; r++) {
+    const order = [...best.order];
+    for (const u of best.unplaced) {
+      const i = order.indexOf(u.inst);
+      order.splice(i, 1);
+      order.splice(Math.floor(rand() * rand() * i), 0, u.inst);
+    }
+    const a = Math.floor(rand() * order.length), b = Math.floor(rand() * order.length);
+    [order[a], order[b]] = [order[b], order[a]];
+    const mode = rand() < 0.75 ? best.mode : modes[Math.floor(rand() * modes.length)];
+    tryRun(order, best.policy, mode, `${best.policy}/${mode}/improved`);
+  }
+  best.policy = best.label;
 
   const ordered = loadOrder(best.placed);
   const placements = ordered.map((p, i) => ({
