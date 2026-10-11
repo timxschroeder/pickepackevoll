@@ -1,5 +1,5 @@
 {
-  "_help": "dims = [length, width, height] in cm, as packed. kg per piece. conf = low | med | high | measured. flags: upright, noRotate, floor, noTop, fragile, flex, nice, exclude. Optional: maxTop (kg allowed on top), guess (old estimate kept after measuring).",
+  "_help": "dims = [length, width, height] in cm, as packed. kg per piece. conf = low | med | high | measured. flags: upright (height axis stays vertical), noRotate, floor, noTop, fragile, flex, nice, exclude. Optional: maxTop (kg allowed on top), minSupport (0–1, share of the base that must rest on something), maxHeight (cm, highest allowed top edge), guess (old estimate kept after measuring).",
   "items": [
     { "id": "vitrine-base", "name": "Vitrine Unterteil", "group": "Vitrine", "qty": 1, "dims": [170, 50, 96], "kg": 70, "conf": "measured", "flags": ["upright", "floor"], "maxTop": 50, "note": "measured 170 wide × 50 deep × 96 tall; weight guessed, user agrees", "guess": { "dims": [150, 50, 95], "kg": 75, "conf": "low" } },
     { "id": "vitrine-top", "name": "Vitrine Oberteil (Glas)", "group": "Vitrine", "qty": 1, "dims": [165, 37, 140], "kg": 50, "conf": "measured", "flags": ["upright", "fragile", "noTop"], "note": "measured 165 wide × 37 deep × 140 tall, glass doors; weight guessed, user agrees", "guess": { "dims": [150, 40, 120], "kg": 55, "conf": "low" } },
@@ -22,10 +22,12 @@
     { "id": "plant", "name": "Pflanze", "group": "Pflanzen", "qty": 2, "dims": [41, 41, 140], "kg": 20, "conf": "high", "flags": ["upright", "noTop", "fragile"], "note": "140 tall, pot Ø ~41, roughly cylindrical (both plants); weight guessed", "guess": { "dims": [60, 60, 180], "kg": 35, "conf": "low" } },
     { "id": "rug-small", "name": "Teppich klein (gerollt)", "group": "Teppiche", "qty": 1, "dims": [130, 25, 25], "kg": 5, "conf": "med", "flags": ["flex"] },
     { "id": "rug-medium", "name": "Teppich mittel (gerollt)", "group": "Teppiche", "qty": 1, "dims": [200, 30, 30], "kg": 10, "conf": "med" },
-    { "id": "bike", "name": "Fahrrad", "group": "Fahrräder", "qty": 2, "dims": [180, 25, 105], "kg": 15, "conf": "med", "flags": ["upright", "noTop"], "note": "handlebar turned, pedals off" },
+    { "id": "bike-l", "name": "Gravelbike L (ohne Vorderrad)", "group": "Fahrräder", "qty": 1, "dims": [140, 100, 30], "kg": 9, "conf": "med", "flags": ["upright", "noTop"], "note": "gravel bike, frame size L; front wheel off, handlebar turned, lying flat on top of the load; has a box as cushion", "guess": { "dims": [180, 25, 105], "kg": 15, "conf": "med" }, "minSupport": 0.4 },
+    { "id": "bike-2", "name": "Gravelbike S (ohne Vorderrad)", "group": "Fahrräder", "qty": 1, "dims": [132, 92, 30], "kg": 9, "conf": "med", "flags": ["upright", "noTop"], "minSupport": 0.4, "note": "gravel bike, frame size S; front wheel off, handlebar turned, lying flat; needs a cushion (none yet)", "guess": { "dims": [180, 25, 105], "kg": 15, "conf": "med" } },
+    { "id": "bike-wheel", "name": "Vorderrad", "group": "Fahrräder", "qty": 2, "dims": [70, 70, 10], "kg": 1.5, "conf": "med", "flags": ["noTop"], "note": "700c wheel with tyre, quick-release; lies flat or stands on edge in a gap" },
     { "id": "suitcase-cabin", "name": "Koffer Handgepäck", "group": "Koffer", "qty": 2, "dims": [55, 40, 23], "kg": 8, "conf": "med", "maxTop": 40, "note": "typical cabin size" },
     { "id": "suitcase-medium", "name": "Koffer mittel", "group": "Koffer", "qty": 1, "dims": [68, 45, 28], "kg": 15, "conf": "med", "maxTop": 40, "note": "typical medium size" },
     { "id": "suitcase-large", "name": "Koffer groß", "group": "Koffer", "qty": 1, "dims": [78, 52, 31], "kg": 22, "conf": "med", "maxTop": 40, "note": "typical large size" },
-    { "id": "box", "name": "Umzugskarton", "group": "Kartons", "qty": 50, "dims": [63.4, 29, 32.6], "kg": 10, "conf": "measured", "maxTop": 50, "note": "exact: 634 × 290 × 326 mm; ~10 kg each (user estimate)", "guess": { "dims": [60, 33, 34], "kg": 10, "conf": "med" } }
+    { "id": "box", "name": "Umzugskarton", "group": "Kartons", "qty": 50, "dims": [63.4, 29, 32.6], "kg": 10, "conf": "measured", "maxTop": 60, "note": "exact: 634 × 290 × 326 mm, stacked flat, top edge at most 170 cm (5 layers) so the bikes fit on top; ~10 kg each (user estimate)", "guess": { "dims": [60, 33, 34], "kg": 10, "conf": "med" }, "flags": ["upright"], "maxHeight": 170 }
   ]
 }
