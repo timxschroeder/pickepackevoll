@@ -205,7 +205,10 @@ function itemRow(it) {
 
 function renderItems() {
   const items = S.raw.items?.items ?? [];
-  $('#item-list').innerHTML = items.map(itemRow).join('');
+  const mode = $('#sort').value;
+  const kgOf = { total: (it) => (it.kg ?? 0) * (it.qty ?? 1), piece: (it) => it.kg ?? 0 }[mode];
+  const shown = kgOf ? [...items].sort((a, b) => kgOf(b) - kgOf(a)) : items;
+  $('#item-list').innerHTML = shown.map(itemRow).join('');
   $('#item-count').textContent = items.reduce((n, it) => n + (it.qty ?? 1), 0);
   applyFilter();
   highlightRow();
@@ -351,6 +354,7 @@ $('#add-item').onclick = () => {
   name.select();
 };
 $('#filter').addEventListener('input', applyFilter);
+$('#sort').addEventListener('change', renderItems);
 
 $('#tab-rules').addEventListener('click', (e) => {
   const act = e.target.dataset.act, box = e.target.closest('.rule');

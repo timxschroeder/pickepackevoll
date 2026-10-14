@@ -45,6 +45,11 @@
       <div id="tab-items" class="tab" hidden>
         <div class="toolbar">
           <input id="filter" type="search" placeholder="Filter items">
+          <select id="sort" title="Sort order of the list (the data file keeps its order)">
+            <option value="file">Order: file</option>
+            <option value="total">Heaviest total (kg × qty)</option>
+            <option value="piece">Heaviest piece</option>
+          </select>
           <button id="add-item">Add item</button>
         </div>
         <div id="item-list"></div>
