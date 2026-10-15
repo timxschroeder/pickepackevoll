@@ -29,6 +29,7 @@
     { "id": "suitcase-cabin", "name": "Koffer Handgepäck", "group": "Koffer", "qty": 2, "dims": [55, 40, 23], "kg": 8, "conf": "med", "maxTop": 40, "note": "typical cabin size" },
     { "id": "suitcase-medium", "name": "Koffer mittel", "group": "Koffer", "qty": 1, "dims": [68, 45, 28], "kg": 15, "conf": "med", "maxTop": 40, "note": "typical medium size" },
     { "id": "suitcase-large", "name": "Koffer groß", "group": "Koffer", "qty": 1, "dims": [78, 52, 31], "kg": 22, "conf": "med", "maxTop": 40, "note": "typical large size" },
-    { "id": "box", "name": "Umzugskarton", "group": "Kartons", "qty": 30, "dims": [63.4, 29, 32.6], "kg": 10, "conf": "measured", "maxTop": 60, "note": "exact: 634 × 290 × 326 mm, any orientation, stacked up to the roof (user 2026-10-15); ~10 kg each (user estimate)", "guess": { "dims": [60, 33, 34], "kg": 10, "conf": "med" } }
+    { "id": "bag", "name": "Vakuumbeutel (Kleidung)", "group": "Beutel", "qty": 10, "dims": [70, 50, 12], "kg": 6, "conf": "low", "flags": ["flex"], "note": "vacuum-packed clothes, stuffed into gaps; assumed ≈ one box of clothes compressed to ~42 l, ~6 kg" },
+    { "id": "box", "name": "Umzugskarton", "group": "Kartons", "qty": 20, "dims": [63.4, 29, 32.6], "kg": 10, "conf": "measured", "maxTop": 60, "note": "exact: 634 × 290 × 326 mm, any orientation, stacked up to the roof (user 2026-10-15); ~10 kg each (user estimate)", "guess": { "dims": [60, 33, 34], "kg": 10, "conf": "med" } }
   ]
 }

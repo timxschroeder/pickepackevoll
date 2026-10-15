@@ -11,6 +11,7 @@ const PALETTE = ['#e07a5f', '#6f98d8', '#7fb08f', '#b78fd0', '#e3b75a', '#5fb0b7
 const CARDBOARD = '#c9a36a';
 const FLAG_LABEL = { upright: 'upright', floor: 'on floor', noTop: 'nothing on top', fragile: 'fragile', noRotate: 'no rotation', flex: 'flexible', nice: 'optional', exclude: 'leave out' };
 const REASON = { 'too-large': 'too large', door: "doesn't fit through door", 'no-space': 'no space', 'no-gap': 'no gap' };
+const MIX_IDS = ['box', 'bag']; // quick quantity inputs at the top of the report: rigid boxes vs. vacuum bags
 const LABEL_MAX_QTY = 6; // items with more pieces than this (boxes) get no 3D label unless selected
 
 const S = { raw: {}, disk: {}, dirty: {}, model: null, plan: null, sel: null, colors: new Map(), timer: null };
@@ -159,6 +160,8 @@ function renderStats() {
 function renderReport() {
   const p = S.plan, s = p.stats;
   const h = [];
+  const mix = MIX_IDS.map(findItem).filter(Boolean);
+  if (mix.length) h.push(`<div class="mix"><b>Mix</b>${mix.map((it) => `<label>${esc(it.name)} <input type="number" min="0" step="1" data-mix="${esc(it.id)}" value="${it.qty ?? 1}"></label>`).join('')}</div>`);
   if (p.warnings.length) h.push(`<h3>Warnings</h3><ul class="list">${p.warnings.map((w) => `<li class="warn">${esc(w)}</li>`).join('')}</ul>`);
   if (p.unplaced.length) {
     h.push(`<h3 class="bad">Not placed (${p.unplaced.length})</h3><ul class="list">`);
@@ -377,6 +380,13 @@ $('#filter').addEventListener('input', applyFilter);
 $('#van').addEventListener('change', (e) => {
   S.raw.container.active = e.target.value;
   markDirty('container');
+});
+$('#tab-report').addEventListener('change', (e) => {
+  const id = e.target.dataset.mix;
+  if (!id) return;
+  findItem(id).qty = Math.max(0, Math.round(+e.target.value || 0));
+  renderItems();
+  markDirty('items');
 });
 $('#tab-report').addEventListener('click', (e) => {
   if (e.target.id !== 'compare-btn') return;

@@ -42,6 +42,8 @@ header { display: flex; align-items: center; gap: 24px; padding: 10px 16px; bord
 .brand { display: flex; flex-direction: column; min-width: 200px; }
 .brand span { font-size: 12px; }
 .brand select { font-size: 12px; max-width: 320px; margin: 2px 0; }
+.mix { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; padding: 8px 0; font-size: 13px; }
+.mix input { width: 56px; }
 table.compare { width: 100%; border-collapse: collapse; font-size: 12px; }
 table.compare th, table.compare td { text-align: left; padding: 4px 6px; border-bottom: 1px solid var(--border); vertical-align: top; }
 table.compare tr.on td { font-weight: 600; }
