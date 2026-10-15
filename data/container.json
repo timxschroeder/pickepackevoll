@@ -1,6 +1,6 @@
 {
   "_help": "vans = the configurations to compare; active = id of the van that is packed and shown. interior = [length, width, height] cm (minimum load space from the rental spec), payloadKg = rated payload (already includes a 75 kg driver), passengerKg = everyone else in the cab, subtracted from every van's payload. door = rear door opening [width, height] cm. obstacles = wheel arches etc. with pos [x, y, z] and dims [L, W, H] cm.",
-  "active": "box",
+  "active": "crafter-long",
   "passengerKg": 0,
   "packing": {"clearanceCm":1,"minSupport":0.75,"estimateMarginPct":{"low":5,"med":3,"high":0,"measured":0},"iterations":80,"seed":1,"minGapCm":15},
   "vans": [
