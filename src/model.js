@@ -25,8 +25,9 @@ export function vanList(raw) {
 export function pickVan(raw, id = raw?.active) {
   if (!raw?.vans) return raw;
   const van = raw.vans.find((v) => v.id === id) ?? raw.vans[0];
-  const passengerKg = raw.passengerKg ?? 0;
-  return { ...van, packing: raw.packing, ratedPayloadKg: van.payloadKg, passengerKg, payloadKg: van.payloadKg != null ? van.payloadKg - passengerKg : undefined };
+  const passengerKg = raw.passengerKg ?? 0, subtract = raw.subtractPassenger !== false;
+  const payloadKg = van.payloadKg != null && subtract ? van.payloadKg - passengerKg : van.payloadKg;
+  return { ...van, packing: raw.packing, ratedPayloadKg: van.payloadKg, passengerKg, subtractPassenger: subtract, payloadKg };
 }
 
 export function normalizeContainer(c) {
@@ -39,6 +40,7 @@ export function normalizeContainer(c) {
     payloadKg: c.payloadKg ?? Infinity,
     ratedPayloadKg: c.ratedPayloadKg ?? c.payloadKg ?? Infinity,
     passengerKg: c.passengerKg ?? 0,
+    subtractPassenger: c.subtractPassenger ?? true,
     door: c.door ?? [W, H],
     obstacles: (c.obstacles ?? []).map((o) => ({
       name: o.name, x: o.pos[0], y: o.pos[1], z: o.pos[2], dx: o.dims[0], dy: o.dims[1], dz: o.dims[2],

@@ -1,7 +1,7 @@
 // Page glue: load data, pack, render, edit items, save, and pick up changes made on disk.
 import { buildModel, vanList, FLAGS } from './model.js';
 import { pack } from './pack.js';
-import { groupUnplaced } from './report.js';
+import { groupUnplaced, paxNote } from './report.js';
 import { formatDataFile } from './format.js';
 import { View } from './view.js';
 
@@ -144,14 +144,13 @@ function renderStats() {
   const vans = vanList(S.raw.container);
   $('#van').innerHTML = vans.map((v) => `<option value="${esc(v.id)}"${v.id === C.id ? ' selected' : ''}>${esc(v.name)}</option>`).join('');
   $('#van').hidden = vans.length < 2;
-  const pax = C.passengerKg ? ` (${C.ratedPayloadKg} − ${C.passengerKg} passengers)` : '';
-  $('#van-name').textContent = `${C.L}×${C.W}×${C.H} cm · payload ${C.payloadKg} kg${pax}`;
+  $('#van-name').textContent = `${C.L}×${C.W}×${C.H} cm · payload ${C.payloadKg} kg${C.subtractPassenger ? paxNote(C) : ''}`;
   const over = s.loadedKg > s.payloadKg;
   const stat = (k, v, cls = '') => `<div class="stat ${cls}"><div class="k">${k}</div><div class="v">${v}</div></div>`;
   $('#stats').innerHTML = [
     stat('Placed', `${s.placed} / ${s.pieces}`, s.unplaced ? 'bad' : 'good'),
     stat('Volume used', `${s.volumePct}% <span class="muted" style="font-size:12px;font-weight:400">${s.placedM3} / ${s.usableM3} m³</span>`),
-    stat('Weight / payload', `${s.loadedKg} / ${s.payloadKg} kg`, over ? 'bad' : ''),
+    stat('Weight / payload', `${s.loadedKg} / ${s.payloadKg} kg${C.passengerKg && !C.subtractPassenger ? `<div class="muted" style="font-size:12px;font-weight:400">${paxNote(C, s.loadedKg).slice(3)}</div>` : ''}`, over ? 'bad' : ''),
     stat('Free at door', `${s.freeLengthCm} cm`),
     stat('Room for bags', `≈ ${s.bags} <span class="muted" style="font-size:12px;font-weight:400">× ${s.bagLitres} l · gaps ${s.gapM3} m³</span>`),
   ].join('');
@@ -221,7 +220,7 @@ function renderComparison() {
     return `<tr class="${v.id === S.plan.container.id ? 'on' : ''}"><td>${esc(v.name)}<div class="muted">${p.container.L}×${p.container.W}×${p.container.H} cm</div></td>
       <td class="${s.unplaced ? 'bad' : ''}">${s.placed}/${s.pieces}${missing ? `<div class="muted">missing: ${missing}</div>` : ''}</td>
       <td>${s.volumePct}%<div class="muted">of ${s.usableM3} m³</div></td>
-      <td class="${spare < 0 ? 'bad' : ''}">${spare < 0 ? `${-spare} kg over` : `${spare} kg spare`}<div class="muted">${s.allKg} / ${s.payloadKg} kg</div></td></tr>`;
+      <td class="${spare < 0 ? 'bad' : ''}">${spare < 0 ? `${-spare} kg over` : `${spare} kg spare`}<div class="muted">${s.allKg} / ${s.payloadKg} kg${p.container.subtractPassenger ? '' : esc(paxNote(p.container, s.allKg))}</div></td></tr>`;
   });
   $('#compare').innerHTML = `<table class="compare"><tr><th>Van</th><th>Placed</th><th>Volume</th><th>Weight (all items)</th></tr>${rows.join('')}</table>`;
 }

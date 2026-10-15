@@ -448,7 +448,7 @@ export function pack(model) {
   else if (allKg > C.payloadKg) warnings.push(`Everything together (${Math.round(allKg)} kg) would exceed payload ${C.payloadKg} kg`);
 
   return {
-    container: { id: C.id, ratedPayloadKg: C.ratedPayloadKg, passengerKg: C.passengerKg, name: C.name, conf: C.conf, L: C.L, W: C.W, H: C.H, door: C.door, obstacles: C.obstacles, payloadKg: C.payloadKg },
+    container: { id: C.id, ratedPayloadKg: C.ratedPayloadKg, passengerKg: C.passengerKg, subtractPassenger: C.subtractPassenger, name: C.name, conf: C.conf, L: C.L, W: C.W, H: C.H, door: C.door, obstacles: C.obstacles, payloadKg: C.payloadKg },
     placements,
     unplaced: allUnplaced,
     flex: flexOut,

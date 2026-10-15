@@ -1,7 +1,9 @@
 {
-  "_help": "vans = the configurations to compare; active = id of the van that is packed and shown. interior = [length, width, height] cm (minimum load space from the rental spec), payloadKg = rated payload (already includes a 75 kg driver), passengerKg = everyone else in the cab, subtracted from every van's payload. door = rear door opening [width, height] cm. obstacles = wheel arches etc. with pos [x, y, z] and dims [L, W, H] cm.",
+  "_help": "vans = the configurations to compare; active = id of the van that is packed and shown. interior = [length, width, height] cm (minimum load space from the rental spec), payloadKg = rated payload (already includes a 75 kg driver), passengerKg = everyone else in the cab; subtracted from every van's payload unless subtractPassenger is false (then shown separately). door = rear door opening [width, height] cm. obstacles = wheel arches etc. with pos [x, y, z] and dims [L, W, H] cm.",
   "active": "crafter-long",
-  "passengerKg": 0,
+  "passengerKg": 67,
+  "subtractPassenger": false,
+  "_passenger": "Michelle 67 kg (2026-10-15). Shown next to the payload, not subtracted: the rated payload assumes a 90 % full tank and we expect to drive with less (a Crafter tank is ~75 l, ~0.84 kg/l, so half a tank is ~25 kg lighter).",
   "packing": {"clearanceCm":1,"minSupport":0.75,"estimateMarginPct":{"low":5,"med":3,"high":0,"measured":0},"iterations":80,"seed":1,"minGapCm":15},
   "vans": [
     { "id": "box", "name": "1 · Koffer 3.5 t mit Ladebordwand (gebucht)", "conf": "measured", "note": "Rental spec, minimum load space: 4370 × 2100 × 2250 mm, payload 815 kg, loading edge 1000 mm high, tail lift available. Box body = flat floor, no wheel arches inside. Door opening not in the spec: assumed 200 × 215 cm.", "interior": [437, 210, 225], "payloadKg": 815, "door": [200, 215], "obstacles": [] },
