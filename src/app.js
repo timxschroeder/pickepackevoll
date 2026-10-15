@@ -1,12 +1,12 @@
 // Page glue: load data, pack, render, edit items, save, and pick up changes made on disk.
-import { buildModel, FLAGS } from './model.js';
+import { buildModel, vanList, FLAGS } from './model.js';
 import { pack } from './pack.js';
 import { groupUnplaced } from './report.js';
 import { formatDataFile } from './format.js';
 import { View } from './view.js';
 
 const FILES = ['container', 'items', 'constraints'];
-const LIST_KEY = { items: 'items', constraints: 'constraints' };
+const LIST_KEY = { items: 'items', constraints: 'constraints', container: 'vans' };
 const PALETTE = ['#e07a5f', '#6f98d8', '#7fb08f', '#b78fd0', '#e3b75a', '#5fb0b7', '#d98fa8', '#9aa84f', '#c48a62', '#8a8fd6', '#d5734f', '#6ec3a1'];
 const CARDBOARD = '#c9a36a';
 const FLAG_LABEL = { upright: 'upright', floor: 'on floor', noTop: 'nothing on top', fragile: 'fragile', noRotate: 'no rotation', flex: 'flexible', nice: 'optional', exclude: 'leave out' };
@@ -140,7 +140,11 @@ function repack() {
 
 function renderStats() {
   const s = S.plan.stats, C = S.plan.container;
-  $('#van-name').textContent = `${C.name} · ${C.L}×${C.W}×${C.H} cm`;
+  const vans = vanList(S.raw.container);
+  $('#van').innerHTML = vans.map((v) => `<option value="${esc(v.id)}"${v.id === C.id ? ' selected' : ''}>${esc(v.name)}</option>`).join('');
+  $('#van').hidden = vans.length < 2;
+  const pax = C.passengerKg ? ` (${C.ratedPayloadKg} − ${C.passengerKg} passengers)` : '';
+  $('#van-name').textContent = `${C.L}×${C.W}×${C.H} cm · payload ${C.payloadKg} kg${pax}`;
   const over = s.loadedKg > s.payloadKg;
   const stat = (k, v, cls = '') => `<div class="stat ${cls}"><div class="k">${k}</div><div class="v">${v}</div></div>`;
   $('#stats').innerHTML = [
@@ -177,6 +181,7 @@ function renderReport() {
   const counts = new Map();
   for (const it of S.model.items) if (!it.exclude) counts.set(it.group, (counts.get(it.group) ?? 0) + it.qty);
   h.push(`<h3>Groups</h3><div class="legend">${[...counts].map(([g, n]) => `<div><span class="swatch" style="background:${colorOf(g)}"></span>${esc(g)} <span class="muted">${n}</span></div>`).join('')}</div>`);
+  if (vanList(S.raw.container).length > 1) h.push(`<h3>Compare vans</h3><div id="compare"><button id="compare-btn">Pack every van with these items</button></div>`);
   h.push(`<h3>Details</h3><div class="muted" style="font-size:12px">Rigid items fill ${s.rigidPct}% of usable volume. All items together: ${s.allM3} m³, ${s.allKg} kg.${s.cog ? ` Centre of gravity ${s.cog[0]} cm from the cab, ${s.cog[1]} cm from the left wall, ${s.cog[2]} cm high.` : ''} ${p.meta.runs} runs in ${p.meta.ms} ms (best: ${p.meta.policy}).</div>`);
   $('#tab-report').innerHTML = h.join('');
 }
@@ -201,6 +206,21 @@ function itemRow(it) {
       <button class="del" title="Remove item">remove</button></div>
     <div class="row"><input class="note" data-f="note" value="${esc(it.note)}" placeholder="note"></div>${guess}
   </div>`;
+}
+
+// Packs the current items into every van (takes a moment) and shows one row per van.
+function renderComparison() {
+  const rows = vanList(S.raw.container).map((v) => {
+    const m = buildModel(S.raw.container, S.raw.items, S.raw.constraints, v.id);
+    if (!m.ok) return `<tr><td colspan="4">${esc(v.name)}: ${esc(m.errors.join(' · '))}</td></tr>`;
+    const p = pack(m), s = p.stats, spare = s.payloadKg - s.allKg;
+    const missing = groupUnplaced(p.unplaced).map((u) => `${u.count > 1 ? u.count + '× ' : ''}${esc(u.name)}`).join(', ');
+    return `<tr class="${v.id === S.plan.container.id ? 'on' : ''}"><td>${esc(v.name)}<div class="muted">${p.container.L}×${p.container.W}×${p.container.H} cm</div></td>
+      <td class="${s.unplaced ? 'bad' : ''}">${s.placed}/${s.pieces}${missing ? `<div class="muted">missing: ${missing}</div>` : ''}</td>
+      <td>${s.volumePct}%<div class="muted">of ${s.usableM3} m³</div></td>
+      <td class="${spare < 0 ? 'bad' : ''}">${spare < 0 ? `${-spare} kg over` : `${spare} kg spare`}<div class="muted">${s.allKg} / ${s.payloadKg} kg</div></td></tr>`;
+  });
+  $('#compare').innerHTML = `<table class="compare"><tr><th>Van</th><th>Placed</th><th>Volume</th><th>Weight (all items)</th></tr>${rows.join('')}</table>`;
 }
 
 function renderItems() {
@@ -354,6 +374,16 @@ $('#add-item').onclick = () => {
   name.select();
 };
 $('#filter').addEventListener('input', applyFilter);
+$('#van').addEventListener('change', (e) => {
+  S.raw.container.active = e.target.value;
+  markDirty('container');
+});
+$('#tab-report').addEventListener('click', (e) => {
+  if (e.target.id !== 'compare-btn') return;
+  e.target.disabled = true;
+  e.target.textContent = 'Packing…';
+  setTimeout(renderComparison, 20);
+});
 $('#sort').addEventListener('change', renderItems);
 
 $('#tab-rules').addEventListener('click', (e) => {

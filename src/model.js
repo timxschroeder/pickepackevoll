@@ -15,13 +15,30 @@ const PACKING_DEFAULTS = {
   minGapCm: 15,
 };
 
+// container.json holds several vans; this returns the flat description of one of them
+// (default: the active one), with the shared packing parameters and the cab passengers taken off the payload.
+// A flat file without `vans` is a single van and passes through unchanged.
+export function vanList(raw) {
+  return raw?.vans ?? [{ id: 'van', ...raw }];
+}
+
+export function pickVan(raw, id = raw?.active) {
+  if (!raw?.vans) return raw;
+  const van = raw.vans.find((v) => v.id === id) ?? raw.vans[0];
+  const passengerKg = raw.passengerKg ?? 0;
+  return { ...van, packing: raw.packing, ratedPayloadKg: van.payloadKg, passengerKg, payloadKg: van.payloadKg != null ? van.payloadKg - passengerKg : undefined };
+}
+
 export function normalizeContainer(c) {
   const [L, W, H] = c.interior;
   return {
+    id: c.id,
     name: c.name ?? 'Container',
     conf: c.conf ?? 'measured',
     L, W, H,
     payloadKg: c.payloadKg ?? Infinity,
+    ratedPayloadKg: c.ratedPayloadKg ?? c.payloadKg ?? Infinity,
+    passengerKg: c.passengerKg ?? 0,
     door: c.door ?? [W, H],
     obstacles: (c.obstacles ?? []).map((o) => ({
       name: o.name, x: o.pos[0], y: o.pos[1], z: o.pos[2], dx: o.dims[0], dy: o.dims[1], dz: o.dims[2],
@@ -33,6 +50,8 @@ export function normalizeContainer(c) {
 // Returns { errors: [], warnings: [] }. Errors make the data unusable, warnings don't.
 export function validate(containerRaw, itemsRaw, constraintsRaw) {
   const errors = [], warnings = [];
+  if (containerRaw?.vans && containerRaw.active && !containerRaw.vans.some((v) => v.id === containerRaw.active)) warnings.push(`container: unknown active van "${containerRaw.active}", using the first one`);
+  containerRaw = pickVan(containerRaw);
   const dims3 = (d) => Array.isArray(d) && d.length === 3 && d.every((v) => typeof v === 'number' && v > 0);
   if (!dims3(containerRaw?.interior)) errors.push('container.interior must be [L, W, H] in cm');
   const ids = new Set();
@@ -140,10 +159,11 @@ export function expand(resolved, container) {
   return out;
 }
 
-export function buildModel(containerRaw, itemsRaw, constraintsRaw) {
+export function buildModel(containerRaw, itemsRaw, constraintsRaw, vanId) {
+  containerRaw = containerRaw?.vans ? { ...containerRaw, active: vanId ?? containerRaw.active } : containerRaw;
   const check = validate(containerRaw, itemsRaw, constraintsRaw);
   if (check.errors.length) return { ...check, ok: false };
-  const container = normalizeContainer(containerRaw);
+  const container = normalizeContainer(pickVan(containerRaw));
   const items = resolveItems(itemsRaw, constraintsRaw);
   return { ...check, ok: true, container, items, instances: expand(items, container) };
 }

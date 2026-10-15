@@ -41,6 +41,10 @@ input:focus, select:focus { outline: 2px solid color-mix(in srgb, var(--accent) 
 header { display: flex; align-items: center; gap: 24px; padding: 10px 16px; border-bottom: 1px solid var(--border); background: var(--panel); flex-wrap: wrap; }
 .brand { display: flex; flex-direction: column; min-width: 200px; }
 .brand span { font-size: 12px; }
+.brand select { font-size: 12px; max-width: 320px; margin: 2px 0; }
+table.compare { width: 100%; border-collapse: collapse; font-size: 12px; }
+table.compare th, table.compare td { text-align: left; padding: 4px 6px; border-bottom: 1px solid var(--border); vertical-align: top; }
+table.compare tr.on td { font-weight: 600; }
 .stats { display: flex; gap: 8px; flex-wrap: wrap; }
 .stat { background: var(--panel-2); border-radius: var(--radius); padding: 5px 12px; min-width: 110px; }
 .stat .k { font-size: 11px; color: var(--muted); }

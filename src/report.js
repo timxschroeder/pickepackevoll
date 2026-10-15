@@ -22,7 +22,9 @@ export function formatReport(plan) {
   const L = [];
   L.push(`${plan.container.name}`);
   L.push(`Placed ${s.placed}/${s.pieces} pieces · ${s.placedM3} of ${s.usableM3} m³ (${s.volumePct}%) · all items ${s.allM3} m³`);
-  L.push(`Weight loaded ${s.loadedKg} kg / payload ${s.payloadKg} kg · everything ${s.allKg} kg`);
+  const C = plan.container;
+  const pax = C.passengerKg ? ` (${C.ratedPayloadKg} rated − ${C.passengerKg} passengers)` : '';
+  L.push(`Weight loaded ${s.loadedKg} kg / payload ${s.payloadKg} kg${pax} · everything ${s.allKg} kg`);
   L.push(`Free length at door ${s.freeLengthCm} cm · flexible goods ${s.flexM3} m³ in ${s.gapM3} m³ of gaps`);
   L.push(`Room left for about ${s.bags} soft bags of ${s.bagLitres} l in the gaps`);
   if (s.cog) L.push(`Centre of gravity x=${s.cog[0]} y=${s.cog[1]} z=${s.cog[2]} cm`);
@@ -59,4 +61,19 @@ export function formatDiff(prev, plan) {
   if (newly.length) L.push(`  newly unplaced: ${newly.join(', ')}`);
   if (fixed.length) L.push(`  now placed: ${fixed.join(', ')}`);
   return L.length ? ['', 'CHANGES SINCE LAST RUN', ...L].join('\n') : '\n(no change since last run)';
+}
+
+// One line per van: how well the same load fits each configuration.
+export function formatComparison(plans, activeId) {
+  const L = ['VAN COMPARISON (same items, each van packed on its own)'];
+  for (const p of plans) {
+    const s = p.stats, C = p.container;
+    const kg = s.allKg - s.payloadKg;
+    const missing = groupUnplaced(p.unplaced).map((u) => `${u.count > 1 ? u.count + '× ' : ''}${u.name}`).join(', ');
+    L.push(`${C.id === activeId ? '*' : ' '} ${C.name}  ${C.L}×${C.W}×${C.H} cm`);
+    L.push(`    placed ${s.placed}/${s.pieces} · ${s.volumePct}% of ${s.usableM3} m³ · everything ${s.allKg} kg vs payload ${s.payloadKg} kg → ${kg > 0 ? `${kg} kg OVER` : `${-kg} kg spare`}`);
+    if (missing) L.push(`    not placed: ${missing}`);
+  }
+  L.push('  (* = active van)');
+  return L.join('\n');
 }
