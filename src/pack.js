@@ -111,8 +111,13 @@ const lexLess = (a, b) => {
   return false;
 };
 
-function packOnce(order, C, policyName, runMode) {
+// opt.stress scales every piece (size-margin test), opt.pref maps an instance to its preferred rotation index.
+function packOnce(order, C, policyName, runMode, opt = {}) {
   const policy = POLICIES[policyName];
+  const stress = opt.stress ?? 1;
+  const pref = opt.pref;
+  const right = opt.right; // pieces pushed against the right wall
+  const modeOf = opt.modeOf; // per-piece placement rule, overrides runMode
   const boxes = C.obstacles.map((o) => ({ ...o, obstacle: true, maxTop: Infinity, load: 0 }));
   const placed = [];
   const unplaced = [];
@@ -181,7 +186,7 @@ function packOnce(order, C, policyName, runMode) {
 
   const tryAt = (inst, p, r) => {
     const it = inst.item;
-    const b = { x: p.x, y: p.y, z: p.z, dx: r.d[0], dy: r.d[1], dz: r.d[2] };
+    const b = { x: p.x, y: p.y, z: p.z, dx: r.d[0] * stress, dy: r.d[1] * stress, dz: r.d[2] * stress };
     if (b.x + b.dx > C.L + EPS || b.y + b.dy > C.W + EPS || b.z + b.dz > C.H + EPS) return null;
     if (it.floor && b.z > EPS) return null;
     if (it.maxHeight != null && b.z + b.dz > it.maxHeight + EPS) return null;
@@ -204,22 +209,39 @@ function packOnce(order, C, policyName, runMode) {
     return { b, rot: r.rot, supporters, down: [] };
   };
 
+  // Slide a feasible placement along +y until it touches the right wall or a neighbour
+  const pushRight = (inst, c) => {
+    const b = c.b;
+    let lim = C.W;
+    for (const o of boxes) {
+      if (o.y >= b.y + b.dy - EPS && ov(b.x, b.x + b.dx, o.x, o.x + o.dx) && ov(b.z, b.z + b.dz, o.z, o.z + o.dz)) lim = Math.min(lim, o.y);
+    }
+    const y = lim - b.dy;
+    if (y <= b.y + EPS) return c;
+    const r = inst.rots.find((q) => q.rot === c.rot);
+    return tryAt(inst, { x: b.x, y, z: b.z }, r) || c;
+  };
+
   for (const inst of order) {
     const it = inst.item;
     const capped = it.maxTop <= 5;
     // Optional items (boxes) fill up from the cab, on top of whatever is there, so free space collects at the door
-    const mode = it.priority === 'nice' ? 'x' : runMode;
+    const mode = it.priority === 'nice' ? 'x' : (modeOf?.get(inst) ?? runMode);
+    const toRight = right?.has(inst);
     let best = null, bestKey = null;
     for (const p of eps) {
       if (mode === 'contact') {
         // Best-fit: the spot touching the most walls/floor/neighbours wins, with a mild pull toward the cab
         for (const r of inst.rots) {
-          const c = tryAt(inst, p, r);
-          if (!c) continue;
-          const pen = it.zone ? (zoneViolation(it.zone, c.b, C) * 5) / C.L : 0;
-          const waste = capped ? (0.3 * (C.H - c.b.z - c.b.dz)) / C.H : 0;
-          const key = [-contactFraction(c.b) + (CAB_PULL * (c.b.x + c.b.dx)) / C.L + waste + pen, c.b.z, c.b.x];
-          if (!best || lexLess(key, bestKey)) { best = c; bestKey = key; }
+          const c0 = tryAt(inst, p, r);
+          if (!c0) continue;
+          for (const c of toRight ? [pushRight(inst, c0)] : [c0]) {
+            const pen = it.zone ? (zoneViolation(it.zone, c.b, C) * 5) / C.L : 0;
+            const waste = capped ? (0.3 * (C.H - c.b.z - c.b.dz)) / C.H : 0;
+            const liked = pref?.get(inst) === inst.rots.indexOf(r) ? 0.5 : 0;
+            const key = [-contactFraction(c.b) - liked + (CAB_PULL * (c.b.x + c.b.dx)) / C.L + waste + pen, c.b.z, c.b.x];
+            if (!best || lexLess(key, bestKey)) { best = c; bestKey = key; }
+          }
         }
         continue;
       }
@@ -231,7 +253,9 @@ function packOnce(order, C, policyName, runMode) {
       }
       if (!cands.length) continue;
       cands.sort((a, b) => policy(a.b, b.b));
-      const c = cands[0];
+      const wanted = pref?.get(inst);
+      let c = (wanted >= 0 && cands.find((q) => q.rot === inst.rots[wanted].rot)) || cands[0];
+      if (toRight) c = pushRight(inst, c);
       const pen = it.zone ? zoneViolation(it.zone, c.b, C) * 5 : 0;
       // Nothing (heavy) can go on top: the space above it is lost, so count that height like distance
       const waste = capped ? C.H - c.b.z - c.b.dz : 0;
@@ -328,64 +352,164 @@ export function findGaps(C, solids) {
 
 const pub = (inst) => ({ uid: inst.uid, id: inst.item.id, name: inst.item.name, group: inst.item.group, kg: inst.item.kg, conf: inst.item.conf, dims: inst.item.dims });
 
-export function pack(model) {
+export function pack(model, opts = {}) {
   const t0 = Date.now();
   const C = model.container;
-  const rigid = [], flex = [], unplaced = [];
+  const rigid = [], flex = [], preUnplaced = [];
   for (const inst of model.instances) {
     if (inst.item.flex) { flex.push(inst); continue; }
     const bad = preCheck(inst, C);
-    if (bad) unplaced.push({ inst, ...bad });
+    if (bad) preUnplaced.push({ inst, ...bad });
     else rigid.push(inst);
   }
 
   const rand = mulberry32(C.packing.seed);
   const policies = Object.keys(POLICIES), modes = ['x', 'end', 'contact'];
-  let best = null, bestScore = null;
-  const runs = Math.max(1, C.packing.iterations);
-  const tryRun = (order, policy, mode, label) => {
-    const run = packOnce(order, C, policy, mode);
-    const score = scorePlan(run, C);
-    if (!best || better(score, bestScore)) { best = { ...run, order, policy, mode, label }; bestScore = score; }
+  const totalVol = rigid.reduce((a, i) => a + i.vol, 0);
+  const mustVol = rigid.reduce((a, i) => a + (i.item.priority === 'must' ? i.vol : 0), 0);
+  const budget = opts.evals ?? C.packing.evals;
+  const startedAt = Date.now();
+
+  // Flexible goods go into the free gaps, largest first, at 85% fill efficiency.
+  const placeFlex = (solids) => {
+    const gaps = findGaps(C, [...C.obstacles, ...solids]).map((g) => ({ ...g, left: g.vol * 0.85, flex: [] }));
+    const out = [], noGap = [];
+    for (const inst of [...flex].sort((a, b) => b.vol - a.vol)) {
+      let g = gaps.find((g) => g.left >= inst.vol);
+      if (g) { g.left -= inst.vol; g.flex.push(inst.uid); }
+      else {
+        // soft goods can be folded and split over several gaps (largest first)
+        let need = inst.vol;
+        const parts = [];
+        for (const h of gaps) {
+          if (need <= 1e-6) break;
+          const take = Math.min(h.left, need);
+          if (take > 0) { parts.push([h, take]); need -= take; }
+        }
+        if (need <= 1e-6 && parts.length) {
+          for (const [h, t] of parts) { h.left -= t; h.flex.push(inst.uid); }
+          g = parts[0][0];
+        } else noGap.push(inst);
+      }
+      out.push({ ...pub(inst), vol: inst.vol, gap: g ? gaps.indexOf(g) : null });
+    }
+    return { gaps, out, noGap };
   };
+
+  // Score of one packing run (lower is better): all pieces placed comes first (must-haves weigh most);
+  // the load length only breaks ties. Once every rigid piece is placed the flexible goods have to find a gap too.
+  const evaluate = (order, policy, mode, opt) => {
+    const run = packOnce(order, C, policy, mode, opt);
+    let vol = 0, must = 0, len = 0, pen = 0;
+    for (const p of run.placed) {
+      vol += p.inst.vol;
+      if (p.inst.item.priority === 'must') must += p.inst.vol;
+      len = Math.max(len, p.x + p.dx);
+      if (p.inst.item.zone && !p.inst.item.zone.hard) pen += zoneViolation(p.inst.item.zone, p, C);
+    }
+    let missing = (totalVol - vol) / 1000;
+    let cost = (200 * (mustVol - must)) / 1000 + 8 * missing + 2 * pen + 0.01 * len;
+    let perfect = run.unplaced.length === 0;
+    if (perfect && flex.length) {
+      const f = placeFlex(run.placed).noGap.reduce((a, i) => a + i.vol, 0) / 1000;
+      cost += 8 * f;
+      perfect = f === 0;
+    }
+    return { run, cost, perfect };
+  };
+
   // Phase 1: diverse starts (strategies × orderings)
-  const starts = Math.max(1, Math.round(runs * 0.4));
+  let best = null;
+  const starts = Math.max(6, Math.round(C.packing.iterations * 0.4));
   for (let r = 0; r < starts; r++) {
     const noTopLate = r % 4 < 2;
     const policy = policies[r % policies.length], mode = modes[r % modes.length];
-    tryRun(makeOrder(rigid, rand, r < 6 ? 0 : 0.8, noTopLate), policy, mode, `${policy}/${mode}${noTopLate ? '' : '/noTop-early'}`);
+    const order = makeOrder(rigid, rand, r < 6 ? 0 : 0.8, noTopLate);
+    const ev = evaluate(order, policy, mode, {});
+    if (!best || ev.cost < best.cost) best = { ...ev, order, policy, mode, label: `${policy}/${mode}${noTopLate ? '' : '/noTop-early'}` };
   }
-  // Phase 2: improve the best plan: move pieces that did not fit earlier, plus a random swap
-  for (let r = starts; r < runs; r++) {
-    const order = [...best.order];
-    for (const u of best.unplaced) {
-      const i = order.indexOf(u.inst);
-      const first = order.findIndex((o) => tier(o) === tier(u.inst));
-      order.splice(i, 1);
-      order.splice(first + Math.floor(rand() * rand() * (i - first)), 0, u.inst);
-    }
-    const a = Math.floor(rand() * order.length), b = Math.floor(rand() * order.length);
-    if (tier(order[a]) === tier(order[b])) [order[a], order[b]] = [order[b], order[a]];
-    const mode = rand() < 0.75 ? best.mode : modes[Math.floor(rand() * modes.length)];
-    tryRun(order, best.policy, mode, `${best.policy}/${mode}/improved`);
-  }
-  best.policy = best.label;
 
-  const ordered = loadOrder(best.placed);
+  // Phase 2: biased random-key genetic algorithm (Gonçalves & Resende): a chromosome holds one key per piece
+  // (loading order inside its tier), one preferred rotation per piece and the placement strategy. The fitness
+  // is "everything placed"; once a plan places everything, every piece is made 0.5% larger in each dimension and
+  // the search goes on. The last size at which everything still fitted is the size margin of the plan.
+  let marginPct = 0, evals = 0, level = 0, champion = null;
+  const N = rigid.length;
+  const POP = 30, ELITE = 6, MUTANTS = 5, CP = 0.7, STEP = 0.005;
+  const rank = new Map(best.order.map((o, i) => [o, i / N]));
+  const decode = (ind) => {
+    const idx = rigid.map((_, k) => k).sort((a, b) => tier(rigid[a]) - tier(rigid[b]) || ind.key[a] - ind.key[b]);
+    const pref = new Map();
+    rigid.forEach((inst, k) => { if (ind.rot[k] >= 0) pref.set(inst, Math.min(inst.rots.length - 1, Math.floor(ind.rot[k] * inst.rots.length))); });
+    const right = new Set(), modeOf = new Map();
+    rigid.forEach((inst, k) => {
+      if (ind.side[k] > 0.5) right.add(inst);
+      if (ind.md[k] >= 0) modeOf.set(inst, modes[Math.min(modes.length - 1, Math.floor(ind.md[k] * modes.length))]);
+    });
+    return { order: idx.map((k) => rigid[k]), pref, right, modeOf, policy: policies[Math.floor(ind.g[0] * policies.length)], mode: modes[Math.floor(ind.g[1] * modes.length)] };
+  };
+  const score = (ind, stress) => {
+    const d = decode(ind);
+    evals++;
+    return { ind, d, ...evaluate(d.order, d.policy, d.mode, { stress, pref: d.pref, right: d.right, modeOf: d.modeOf }) };
+  };
+  const fresh = (sigma) => ({
+    key: rigid.map((i) => rank.get(i) + sigma * (rand() - 0.5)),
+    rot: rigid.map(() => (rand() < 0.5 ? -1 : rand())),
+    side: rigid.map(() => (rand() < 0.3 ? 1 : 0)),
+    md: rigid.map(() => (rand() < 0.6 ? -1 : rand())),
+    g: [rand(), rand()],
+  });
+  if (budget > 0 && N > 1) {
+    const seed = { key: rigid.map((i) => rank.get(i)), rot: rigid.map(() => -1), side: rigid.map(() => 0), md: rigid.map(() => -1), g: [policies.indexOf(best.policy) / policies.length + 0.01, modes.indexOf(best.mode) / modes.length + 0.01] };
+    let pop = [seed];
+    while (pop.length < POP) pop.push(fresh(rand() < 0.5 ? 0.15 : 0.6));
+    let scored = pop.map((ind) => score(ind, 1));
+    // an individual that placed everything at 1 + level·STEP and also at 1 becomes the champion
+    const bump = () => {
+      for (;;) {
+        scored.sort((a, b) => a.cost - b.cost);
+        const top = scored.find((e) => e.perfect);
+        if (!top) return;
+        const real = level === 0 ? top : score(top.ind, 1);
+        if (!real.perfect) { top.perfect = false; top.cost += 1e3; continue; }
+        champion = real; marginPct = Math.round(level * STEP * 1000) / 10;
+        level++;
+        if (level * STEP > 0.25) return;
+        scored = scored.map((e) => score(e.ind, 1 + level * STEP));
+        if (evals >= budget) return;
+      }
+    };
+    bump();
+    while (evals < budget && Date.now() - startedAt < C.packing.maxMs) {
+      scored.sort((a, b) => a.cost - b.cost);
+      const kids = [];
+      for (let m = 0; m < MUTANTS; m++) kids.push(fresh(0.6));
+      while (ELITE + kids.length < POP) {
+        const e = scored[Math.floor(rand() * ELITE)].ind, o = scored[Math.floor(rand() * scored.length)].ind;
+        const mix = (u, v) => u.map((x, k) => (rand() < CP ? x : v[k]));
+        kids.push({ key: mix(e.key, o.key), rot: mix(e.rot, o.rot), side: mix(e.side, o.side), md: mix(e.md, o.md), g: mix(e.g, o.g) });
+      }
+      scored = [...scored.slice(0, ELITE), ...kids.map((ind) => score(ind, 1 + level * STEP))];
+      bump();
+    }
+    // final plan: the champion (all placed at the largest size), else the best individual at real size
+    const fin = champion ?? score(scored.sort((a, b) => a.cost - b.cost)[0].ind, 1);
+    if (fin.cost < best.cost || fin.perfect) best = { ...fin.run, ...fin, order: fin.d.order, policy: fin.d.policy, mode: fin.d.mode, label: 'genetic' };
+  }
+  const unplaced = [...preUnplaced];
+  best.policy = best.label ?? best.policy;
+  const ordered = loadOrder(best.run ? best.run.placed : best.placed);
+  best.placed = best.run ? best.run.placed : best.placed;
+  best.unplaced = best.run ? best.run.unplaced : best.unplaced;
+
   const placements = ordered.map((p, i) => ({
     ...pub(p.inst), x: p.x, y: p.y, z: p.z, dx: p.dx, dy: p.dy, dz: p.dz, rot: p.rot, step: i + 1,
     load: Math.round(p.load),
   }));
 
-  // Flexible goods go into the free gaps, largest first, at 85% fill efficiency.
-  const gaps = findGaps(C, [...C.obstacles, ...best.placed]).map((g) => ({ ...g, left: g.vol * 0.85, flex: [] }));
-  const flexOut = [];
-  for (const inst of [...flex].sort((a, b) => b.vol - a.vol)) {
-    const g = gaps.find((g) => g.left >= inst.vol);
-    if (g) { g.left -= inst.vol; g.flex.push(inst.uid); }
-    flexOut.push({ ...pub(inst), vol: inst.vol, gap: g ? gaps.indexOf(g) : null });
-    if (!g) unplaced.push({ inst, reason: 'no-gap', detail: 'no free gap large enough for this flexible item' });
-  }
+  const { gaps, out: flexOut, noGap } = placeFlex(best.placed);
+  for (const inst of noGap) unplaced.push({ inst, reason: 'no-gap', detail: 'no free gap large enough for this flexible item' });
 
   const allUnplaced = [...unplaced, ...best.unplaced].map((u) => ({ ...pub(u.inst), reason: u.reason, detail: u.detail }));
 
@@ -426,6 +550,7 @@ export function pack(model) {
     allKg: Math.round(allKg),
     payloadKg: C.payloadKg,
     freeLengthCm: Math.round(C.L - usedLen),
+    marginPct,
     cog: ck ? [Math.round(cx / ck), Math.round(cy / ck), Math.round(cz / ck)] : null,
   };
 
@@ -457,6 +582,6 @@ export function pack(model) {
     violations,
     uncertain,
     warnings,
-    meta: { runs, policy: best.policy, seed: C.packing.seed, ms: Date.now() - t0 },
+    meta: { runs: starts, evals, policy: best.policy, seed: C.packing.seed, ms: Date.now() - t0 },
   };
 }

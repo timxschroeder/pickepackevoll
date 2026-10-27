@@ -123,3 +123,5 @@ aside { width: 450px; border-left: 1px solid var(--border); background: var(--pa
   aside { width: auto; border-left: none; border-top: 1px solid var(--border); max-height: 50vh; }
   #viewport { min-height: 55vh; }
 }
+
+body.busy .stats { opacity: 0.45; transition: opacity 0.2s; }

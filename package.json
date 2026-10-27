@@ -4,7 +4,8 @@
   "type": "module",
   "scripts": {
     "start": "node serve.mjs",
-    "pack": "node tools/pack.mjs"
+    "pack": "node tools/pack.mjs",
+    "verify": "node tools/verify.mjs"
   },
   "dependencies": {
     "three": "0.180.0"

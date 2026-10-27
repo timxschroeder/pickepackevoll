@@ -11,6 +11,8 @@ const PACKING_DEFAULTS = {
   minSupport: 0.75,
   estimateMarginPct: { low: 5, med: 3, high: 0, measured: 0 },
   iterations: 40,
+  evals: 600, // genetic search: number of packing runs after the diverse starts
+  maxMs: 8000, // safety stop for slow machines
   seed: 1,
   minGapCm: 15,
 };

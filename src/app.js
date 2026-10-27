@@ -1,6 +1,5 @@
 // Page glue: load data, pack, render, edit items, save, and pick up changes made on disk.
 import { buildModel, vanList, FLAGS } from './model.js';
-import { pack } from './pack.js';
 import { groupUnplaced, paxNote } from './report.js';
 import { formatDataFile } from './format.js';
 import { View } from './view.js';
@@ -14,7 +13,14 @@ const REASON = { 'too-large': 'too large', door: "doesn't fit through door", 'no
 const MIX_IDS = ['box', 'bag']; // quick quantity inputs at the top of the report: rigid boxes vs. vacuum bags
 const LABEL_MAX_QTY = 6; // items with more pieces than this (boxes) get no 3D label unless selected
 
-const S = { raw: {}, disk: {}, dirty: {}, model: null, plan: null, sel: null, colors: new Map(), timer: null };
+// Packing runs in a worker; a newer request makes older answers obsolete.
+const worker = new Worker(new URL('./worker.js', import.meta.url), { type: 'module' });
+const waiting = new Map();
+let packSeq = 0;
+worker.onmessage = (e) => { waiting.get(e.data.id)?.(e.data.plan); waiting.delete(e.data.id); };
+const packAsync = (model, opts) => new Promise((resolve) => { const id = ++packSeq; waiting.set(id, resolve); worker.postMessage({ id, model, opts }); });
+
+const S = { raw: {}, disk: {}, dirty: {}, model: null, plan: null, sel: null, colors: new Map(), timer: null, repackSeq: 0 };
 const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 
@@ -118,12 +124,16 @@ function computeColors() {
 }
 const colorOf = (g) => S.colors.get(g) ?? '#999999';
 
-function repack() {
+async function repack() {
   const m = buildModel(S.raw.container, S.raw.items, S.raw.constraints);
   if (!m.ok) return banner(`Data error: ${m.errors.join(' · ')}`, [], 'error');
   if (!$('#banner').classList.contains('conflict')) hideBanner();
   S.model = m;
-  const plan = pack(m);
+  const mine = ++S.repackSeq;
+  document.body.classList.add('busy');
+  const plan = await packAsync(m);
+  if (mine !== S.repackSeq) return; // newer data arrived while packing
+  document.body.classList.remove('busy');
   const qty = new Map(m.items.map((it) => [it.id, it.qty]));
   for (const p of [...plan.placements, ...plan.unplaced]) p.labelled = qty.get(p.id) <= LABEL_MAX_QTY;
   const stepInput = $('#step');
@@ -151,6 +161,7 @@ function renderStats() {
     stat('Placed', `${s.placed} / ${s.pieces}`, s.unplaced ? 'bad' : 'good'),
     stat('Volume used', `${s.volumePct}% <span class="muted" style="font-size:12px;font-weight:400">${s.placedM3} / ${s.usableM3} m³</span>`),
     stat('Weight / payload', `${s.loadedKg} / ${s.payloadKg} kg${C.passengerKg && !C.subtractPassenger ? `<div class="muted" style="font-size:12px;font-weight:400">${paxNote(C, s.loadedKg).slice(3)}</div>` : ''}`, over ? 'bad' : ''),
+    stat('Size margin', s.unplaced ? '–' : `${s.marginPct}% <span class="muted" style="font-size:12px;font-weight:400">all pieces this much bigger still fit</span>`, s.unplaced ? '' : s.marginPct >= 3 ? 'good' : s.marginPct < 1 ? 'bad' : ''),
     stat('Free at door', `${s.freeLengthCm} cm`),
     stat('Room for bags', `≈ ${s.bags} <span class="muted" style="font-size:12px;font-weight:400">× ${s.bagLitres} l · gaps ${s.gapM3} m³</span>`),
   ].join('');
@@ -211,17 +222,18 @@ function itemRow(it) {
 }
 
 // Packs the current items into every van (takes a moment) and shows one row per van.
-function renderComparison() {
-  const rows = vanList(S.raw.container).map((v) => {
+async function renderComparison() {
+  const rows = [];
+  for (const v of vanList(S.raw.container)) {
     const m = buildModel(S.raw.container, S.raw.items, S.raw.constraints, v.id);
-    if (!m.ok) return `<tr><td colspan="4">${esc(v.name)}: ${esc(m.errors.join(' · '))}</td></tr>`;
-    const p = pack(m), s = p.stats, spare = s.payloadKg - s.allKg;
+    if (!m.ok) { rows.push(`<tr><td colspan="4">${esc(v.name)}: ${esc(m.errors.join(' · '))}</td></tr>`); continue; }
+    const p = await packAsync(m, { evals: 150 }), s = p.stats, spare = s.payloadKg - s.allKg;
     const missing = groupUnplaced(p.unplaced).map((u) => `${u.count > 1 ? u.count + '× ' : ''}${esc(u.name)}`).join(', ');
-    return `<tr class="${v.id === S.plan.container.id ? 'on' : ''}"><td>${esc(v.name)}<div class="muted">${p.container.L}×${p.container.W}×${p.container.H} cm</div></td>
+    rows.push(`<tr class="${v.id === S.plan.container.id ? 'on' : ''}"><td>${esc(v.name)}<div class="muted">${p.container.L}×${p.container.W}×${p.container.H} cm</div></td>
       <td class="${s.unplaced ? 'bad' : ''}">${s.placed}/${s.pieces}${missing ? `<div class="muted">missing: ${missing}</div>` : ''}</td>
       <td>${s.volumePct}%<div class="muted">of ${s.usableM3} m³</div></td>
-      <td class="${spare < 0 ? 'bad' : ''}">${spare < 0 ? `${-spare} kg over` : `${spare} kg spare`}<div class="muted">${s.allKg} / ${s.payloadKg} kg${p.container.subtractPassenger ? '' : esc(paxNote(p.container, s.allKg))}</div></td></tr>`;
-  });
+      <td class="${spare < 0 ? 'bad' : ''}">${spare < 0 ? `${-spare} kg over` : `${spare} kg spare`}<div class="muted">${s.allKg} / ${s.payloadKg} kg${p.container.subtractPassenger ? '' : esc(paxNote(p.container, s.allKg))}</div></td></tr>`);
+  }
   $('#compare').innerHTML = `<table class="compare"><tr><th>Van</th><th>Placed</th><th>Volume</th><th>Weight (all items)</th></tr>${rows.join('')}</table>`;
 }
 

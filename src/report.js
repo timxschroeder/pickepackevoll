@@ -33,6 +33,7 @@ export function formatReport(plan) {
   const C = plan.container;
   const pax = paxNote(C, s.loadedKg);
   L.push(`Weight loaded ${s.loadedKg} kg / payload ${s.payloadKg} kg${pax} · everything ${s.allKg} kg`);
+  if (!s.unplaced) L.push(`Size margin ${s.marginPct}%: everything still fits if every piece were ${s.marginPct}% bigger in each direction (on top of the estimate margins)`);
   L.push(`Free length at door ${s.freeLengthCm} cm · flexible goods ${s.flexM3} m³ in ${s.gapM3} m³ of gaps`);
   L.push(`Room left for about ${s.bags} soft bags of ${s.bagLitres} l in the gaps`);
   if (s.cog) L.push(`Centre of gravity x=${s.cog[0]} y=${s.cog[1]} z=${s.cog[2]} cm`);
@@ -52,7 +53,7 @@ export function formatReport(plan) {
     L.push('', 'MEASURE THESE FIRST (largest size uncertainty)');
     for (const u of plan.uncertain) L.push(`  ${u.name}${u.qty > 1 ? ` ×${u.qty}` : ''} — ${u.conf} confidence, ±${u.m3} m³`);
   }
-  L.push('', `(${plan.meta.runs} runs, best policy "${plan.meta.policy}", seed ${plan.meta.seed}, ${plan.meta.ms} ms)`);
+  L.push('', `(${plan.meta.runs} starts + ${plan.meta.evals} genetic runs, best policy "${plan.meta.policy}", seed ${plan.meta.seed}, ${plan.meta.ms} ms)`);
   return L.join('\n');
 }
 
@@ -63,7 +64,7 @@ export function formatDiff(prev, plan) {
     const v = Math.round((b[k] - a[k]) * 100) / 100;
     if (v) L.push(`  ${k}: ${a[k]}${unit} → ${b[k]}${unit} (${v > 0 ? '+' : ''}${v}${unit})`);
   };
-  d('placed'); d('volumePct', '%'); d('loadedKg', ' kg'); d('freeLengthCm', ' cm'); d('gapM3', ' m³'); d('bags');
+  d('placed'); d('volumePct', '%'); d('loadedKg', ' kg'); d('marginPct', '%'); d('freeLengthCm', ' cm'); d('gapM3', ' m³'); d('bags');
   const was = new Set(prev.unplaced.map((u) => u.uid)), now = new Set(plan.unplaced.map((u) => u.uid));
   const newly = [...now].filter((u) => !was.has(u)), fixed = [...was].filter((u) => !now.has(u));
   if (newly.length) L.push(`  newly unplaced: ${newly.join(', ')}`);
