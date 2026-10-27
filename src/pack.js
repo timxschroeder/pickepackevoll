@@ -433,9 +433,10 @@ export function pack(model, opts = {}) {
   // (loading order inside its tier), one preferred rotation per piece and the placement strategy. The fitness
   // is "everything placed"; once a plan places everything, every piece is made 0.5% larger in each dimension and
   // the search goes on. The last size at which everything still fitted is the size margin of the plan.
-  let marginPct = 0, evals = 0, level = 0, champion = null;
+  let marginPct = 0, evals = 0, champion = null;
+  let lo = -1, target = 0, stepNow = 0, stale = 0; // verified margin, margin being tried, adaptive step, generations without success
   const N = rigid.length;
-  const ga = { pop: 30, elite: 6, mutants: 5, cp: 0.7, step: 0.0025, ...opts.ga }; // tuned on 4 seeds: larger or smaller populations were worse
+  const ga = { pop: 30, elite: 6, mutants: 5, cp: 0.7, step: 0.0025, stepMax: 0.02, stale: 3, ...opts.ga }; // tuned on 4 seeds: larger or smaller populations were worse
   const POP = ga.pop, ELITE = ga.elite, MUTANTS = ga.mutants, CP = ga.cp, STEP = ga.step;
   const rank = new Map(best.order.map((o, i) => [o, i / N]));
   const decode = (ind) => {
@@ -466,19 +467,23 @@ export function pack(model, opts = {}) {
     let pop = [seed];
     while (pop.length < POP) pop.push(fresh(rand() < 0.5 ? 0.15 : 0.6));
     let scored = pop.map((ind) => score(ind, 1));
-    // an individual that placed everything at 1 + level·STEP and also at 1 becomes the champion
+    // An individual that placed everything at the size being tried (1 + target) and also at real size becomes
+    // the champion. The step doubles after every success (up to 2%) and is halved when a size resists.
     const bump = () => {
+      let progressed = false;
       for (;;) {
         scored.sort((a, b) => a.cost - b.cost);
         const top = scored.find((e) => e.perfect);
-        if (!top) return;
-        const real = level === 0 ? top : score(top.ind, 1);
+        if (!top) return progressed;
+        const real = target === 0 ? top : score(top.ind, 1);
         if (!real.perfect) { top.perfect = false; top.cost += 1e3; continue; }
-        champion = real; marginPct = Math.round(level * STEP * 10000) / 100;
-        level++;
-        if (level * STEP > 0.25) return;
-        scored = scored.map((e) => score(e.ind, 1 + level * STEP));
-        if (evals >= budget) return;
+        champion = real; lo = target; progressed = true;
+        marginPct = Math.round(lo * 10000) / 100;
+        if (lo >= 0.25) return progressed;
+        stepNow = Math.min(Math.max(stepNow * 2, STEP), ga.stepMax);
+        target = lo + stepNow;
+        scored = scored.map((e) => score(e.ind, 1 + target));
+        if (evals >= budget) return progressed;
       }
     };
     bump();
@@ -491,8 +496,14 @@ export function pack(model, opts = {}) {
         const mix = (u, v) => u.map((x, k) => (rand() < CP ? x : v[k]));
         kids.push({ key: mix(e.key, o.key), rot: mix(e.rot, o.rot), side: mix(e.side, o.side), md: mix(e.md, o.md), g: mix(e.g, o.g) });
       }
-      scored = [...scored.slice(0, ELITE), ...kids.map((ind) => score(ind, 1 + level * STEP))];
-      bump();
+      scored = [...scored.slice(0, ELITE), ...kids.map((ind) => score(ind, 1 + target))];
+      if (bump()) stale = 0;
+      else if (lo >= 0 && ++stale >= ga.stale && target - lo > STEP + 1e-9) {
+        stepNow = Math.max(STEP, (target - lo) / 2);
+        target = lo + stepNow;
+        stale = 0;
+        scored = scored.map((e) => score(e.ind, 1 + target));
+      }
     }
     // final plan: the champion (all placed at the largest size), else the best individual at real size
     const fin = champion ?? score(scored.sort((a, b) => a.cost - b.cost)[0].ind, 1);

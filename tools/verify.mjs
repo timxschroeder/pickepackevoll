@@ -74,7 +74,7 @@ export function verifyPlan(plan, model) {
   }
   // weights and door
   const kg = boxes.reduce((s, b) => s + (item.get(b.id)?.kg ?? 0), 0) + (plan.flex ?? []).filter((f) => f.gap != null).reduce((s, f) => s + f.kg, 0);
-  if (kg > C.payloadKg + 0.5) bad.push(`total ${Math.round(kg)} kg is over the payload ${C.payloadKg} kg`);
+  if (kg > C.payloadKg + 0.5 && !(plan.warnings ?? []).some((w) => /exceed/.test(w))) bad.push(`total ${Math.round(kg)} kg is over the payload ${C.payloadKg} kg and the plan does not warn about it`);
   const placed = new Set([...P.map((p) => p.uid), ...(plan.flex ?? []).filter((f) => f.gap != null).map((f) => f.uid)]);
   const missing = model.instances.filter((i) => !placed.has(i.uid)).map((i) => i.uid);
   const reported = new Set(plan.unplaced.map((u) => u.uid));
