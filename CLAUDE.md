@@ -9,7 +9,7 @@ Van-packing tool for a move Hamburg → Zürich in a rented VW Crafter. Design: 
 ## Data (the only files that change during normal use)
 - `data/items.json` – one item per line. `dims` = [length, width, height] cm **as packed** (furniture taken apart = several items with the same `group`). `kg` per piece. `conf` = low | med | high | measured. `flags` ⊂ upright, noRotate, floor, noTop, fragile, flex, nice, exclude. Optional `maxTop` (kg, total weight resting on it), `minSupport` (0–1), `maxHeight` (cm, top edge), `note`, `guess`.
 - `data/constraints.json` – rules the user stated in words. Keep the original sentence in `text`.
-- `data/container.json` – `vans` (one per line: interior, door, wheel arches, payload), `active` (the van packed and shown), `passengerKg` (people in the cab besides the driver, subtracted from payload), shared `packing` parameters.
+- `data/container.json` – `vans` (one per line: interior, door, wheel arches, payload), `active` (the default van: packed by `npm run pack` and shown first; the page's van dropdown is remembered per browser in localStorage and does not change this file), `passengerKg` (people in the cab besides the driver, subtracted from payload), shared `packing` parameters.
 - Keep the one-entry-per-line format (same as `src/format.js` writes, which the page uses on save).
 
 ## Workflow for user requests
@@ -24,6 +24,7 @@ Van-packing tool for a move Hamburg → Zürich in a rented VW Crafter. Design: 
 
 ## Code map
 - `src/model.js` validate data, merge rules into items, expand quantities, rotations.
+- `src/packer.js` page-side packing service: foreground + background worker, plan cache per model, cancels stale packs, packs the other vans in the background (feeds the "Compare vans" table).
 - `src/pack.js` extreme-point packer + multi-start, gaps, flexible goods, stats. Pure JS (browser + Node).
 - `src/view.js` three.js scene. Plan axes: x = cab→door, y = left→right wall, z = up; three.js position = (x, z, -y).
 - `src/app.js` page: loading/polling, item editor, save, report.

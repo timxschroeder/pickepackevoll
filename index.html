@@ -12,7 +12,7 @@
 <body>
   <header>
     <div class="brand"><h1>Pickepackevoll</h1>
-      <select id="van" title="Which van to pack (Save keeps the choice)"></select>
+      <select id="van" title="Which van to look at (remembered in this browser; the default is `active` in container.json)"></select>
       <span id="van-name" class="muted"></span></div>
     <div id="stats" class="stats"></div>
   </header>
@@ -20,6 +20,7 @@
   <main>
     <section class="stage">
       <div id="viewport"></div>
+      <div id="packing" class="packing" hidden>Packing this van…</div>
       <div id="tooltip" class="tooltip" hidden></div>
       <div class="controls">
         <label class="step">Load step

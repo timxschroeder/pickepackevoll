@@ -3,6 +3,7 @@ import { buildModel, vanList, FLAGS } from './model.js';
 import { groupUnplaced, paxNote } from './report.js';
 import { formatDataFile } from './format.js';
 import { View } from './view.js';
+import { createPacker } from './packer.js';
 
 const FILES = ['container', 'items', 'constraints'];
 const LIST_KEY = { items: 'items', constraints: 'constraints', container: 'vans' };
@@ -13,20 +14,32 @@ const REASON = { 'too-large': 'too large', door: "doesn't fit through door", 'no
 const MIX_IDS = ['box', 'bag']; // quick quantity inputs at the top of the report: rigid boxes vs. vacuum bags
 const LABEL_MAX_QTY = 6; // items with more pieces than this (boxes) get no 3D label unless selected
 
-// Packing runs in a worker; a newer request makes older answers obsolete.
-const worker = new Worker(new URL('./worker.js', import.meta.url), { type: 'module' });
-const waiting = new Map();
-let packSeq = 0;
-worker.onmessage = (e) => { waiting.get(e.data.id)?.(e.data.plan); waiting.delete(e.data.id); };
-const packAsync = (model, opts) => new Promise((resolve) => { const id = ++packSeq; waiting.set(id, resolve); worker.postMessage({ id, model, opts }); });
+// Packing runs in workers, plans are cached per model, the other vans are packed in the background (see packer.js).
+const VAN_KEY = 'pickepackevoll.van'; // which van this browser looks at; the file's `active` is only the default
+const packer = createPacker(() => renderCompare());
 
-const S = { raw: {}, disk: {}, dirty: {}, model: null, plan: null, sel: null, colors: new Map(), timer: null, repackSeq: 0 };
+const S = { raw: {}, disk: {}, dirty: {}, model: null, plan: null, sel: null, colors: new Map(), timer: null, repackSeq: 0, van: storedVan(), entries: [] };
 const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 
 const view = new View($('#viewport'), { onPick: (d) => select(d && d.id ? { id: d.id, uid: d.uid } : null, true), onHover: tooltip });
 
 // ---------- data ----------
+
+function storedVan() {
+  try { return localStorage.getItem(VAN_KEY); } catch { return null; }
+}
+
+function currentVan() {
+  const vans = vanList(S.raw.container);
+  return [S.van, S.raw.container.active].find((id) => vans.some((v) => v.id === id)) ?? vans[0].id;
+}
+
+function switchVan(id) {
+  S.van = id;
+  try { localStorage.setItem(VAN_KEY, id); } catch { /* private mode: the choice just isn't remembered */ }
+  repack();
+}
 
 async function fetchText(name) {
   const r = await fetch(`data/${name}.json`, { cache: 'no-store' });
@@ -70,7 +83,12 @@ async function poll() {
   const conflicts = changed.filter(([n]) => S.dirty[n]).map(([n]) => n);
   for (const [n, t] of clean) {
     try {
-      S.raw[n] = JSON.parse(t);
+      const parsed = JSON.parse(t);
+      if (n === 'container' && parsed.active !== S.raw.container?.active) {
+        S.van = null; // someone changed the default van in the file: follow it
+        try { localStorage.removeItem(VAN_KEY); } catch { /* ignore */ }
+      }
+      S.raw[n] = parsed;
       S.disk[n] = t;
     } catch (e) {
       return banner(`data/${n}.json has a syntax error: ${e.message}`, [], 'error');
@@ -125,15 +143,28 @@ function computeColors() {
 const colorOf = (g) => S.colors.get(g) ?? '#999999';
 
 async function repack() {
-  const m = buildModel(S.raw.container, S.raw.items, S.raw.constraints);
+  const entries = vanList(S.raw.container).map((v) => ({ id: v.id, name: v.name, model: buildModel(S.raw.container, S.raw.items, S.raw.constraints, v.id) }));
+  const activeId = currentVan();
+  const m = entries.find((e) => e.id === activeId).model;
   if (!m.ok) return banner(`Data error: ${m.errors.join(' · ')}`, [], 'error');
   if (!$('#banner').classList.contains('conflict')) hideBanner();
   S.model = m;
+  S.entries = entries;
   const mine = ++S.repackSeq;
-  document.body.classList.add('busy');
-  const plan = await packAsync(m);
-  if (mine !== S.repackSeq) return; // newer data arrived while packing
+  renderVanSelect();
+  renderCompare();
+  const cached = !!packer.peek(entries.find((e) => e.id === activeId));
+  if (!cached) { document.body.classList.add('busy'); $('#packing').hidden = false; }
+  let plan;
+  try {
+    plan = await packer.request(entries.filter((e) => e.model.ok), activeId);
+  } catch (e) {
+    if (mine === S.repackSeq) { document.body.classList.remove('busy'); $('#packing').hidden = true; banner(`Packing failed: ${e.message}`, [], 'error'); }
+    return;
+  }
+  if (!plan || mine !== S.repackSeq) return; // superseded while packing
   document.body.classList.remove('busy');
+  $('#packing').hidden = true;
   const qty = new Map(m.items.map((it) => [it.id, it.qty]));
   for (const p of [...plan.placements, ...plan.unplaced]) p.labelled = qty.get(p.id) <= LABEL_MAX_QTY;
   const stepInput = $('#step');
@@ -149,11 +180,19 @@ async function repack() {
 
 // ---------- rendering ----------
 
+// Built only when the list of vans changes, so the open dropdown is never replaced under the user's hand.
+function renderVanSelect() {
+  const vans = vanList(S.raw.container), sel = $('#van'), sig = vans.map((v) => v.id + v.name).join('|');
+  if (sel.dataset.sig !== sig) {
+    sel.innerHTML = vans.map((v) => `<option value="${esc(v.id)}">${esc(v.name)}</option>`).join('');
+    sel.dataset.sig = sig;
+  }
+  sel.value = currentVan();
+  sel.hidden = vans.length < 2;
+}
+
 function renderStats() {
   const s = S.plan.stats, C = S.plan.container;
-  const vans = vanList(S.raw.container);
-  $('#van').innerHTML = vans.map((v) => `<option value="${esc(v.id)}"${v.id === C.id ? ' selected' : ''}>${esc(v.name)}</option>`).join('');
-  $('#van').hidden = vans.length < 2;
   $('#van-name').textContent = `${C.L}×${C.W}×${C.H} cm · payload ${C.payloadKg} kg${C.subtractPassenger ? paxNote(C) : ''}`;
   const over = s.loadedKg > s.payloadKg;
   const stat = (k, v, cls = '') => `<div class="stat ${cls}"><div class="k">${k}</div><div class="v">${v}</div></div>`;
@@ -194,9 +233,10 @@ function renderReport() {
   const counts = new Map();
   for (const it of S.model.items) if (!it.exclude) counts.set(it.group, (counts.get(it.group) ?? 0) + it.qty);
   h.push(`<h3>Groups</h3><div class="legend">${[...counts].map(([g, n]) => `<div><span class="swatch" style="background:${colorOf(g)}"></span>${esc(g)} <span class="muted">${n}</span></div>`).join('')}</div>`);
-  if (vanList(S.raw.container).length > 1) h.push(`<h3>Compare vans</h3><div id="compare"><button id="compare-btn">Pack every van with these items</button></div>`);
+  if (vanList(S.raw.container).length > 1) h.push(`<h3>Compare vans</h3><div id="compare"></div>`);
   h.push(`<h3>Details</h3><div class="muted" style="font-size:12px">Rigid items fill ${s.rigidPct}% of usable volume. All items together: ${s.allM3} m³, ${s.allKg} kg.${s.cog ? ` Centre of gravity ${s.cog[0]} cm from the cab, ${s.cog[1]} cm from the left wall, ${s.cog[2]} cm high.` : ''} ${p.meta.runs} runs in ${p.meta.ms} ms (best: ${p.meta.policy}).</div>`);
   $('#tab-report').innerHTML = h.join('');
+  renderCompare();
 }
 
 function itemRow(it) {
@@ -221,20 +261,23 @@ function itemRow(it) {
   </div>`;
 }
 
-// Packs the current items into every van (takes a moment) and shows one row per van.
-async function renderComparison() {
-  const rows = [];
-  for (const v of vanList(S.raw.container)) {
-    const m = buildModel(S.raw.container, S.raw.items, S.raw.constraints, v.id);
-    if (!m.ok) { rows.push(`<tr><td colspan="4">${esc(v.name)}: ${esc(m.errors.join(' · '))}</td></tr>`); continue; }
-    const p = await packAsync(m, { evals: 150 }), s = p.stats, spare = s.payloadKg - s.allKg;
+// One row per van from the plan cache; vans still being packed in the background show up when they are done. Click a row to switch.
+function renderCompare() {
+  const el = $('#compare');
+  if (!el) return;
+  const rows = S.entries.map((v) => {
+    const on = v.id === currentVan() ? 'on' : '';
+    if (!v.model.ok) return `<tr class="${on}" data-van="${esc(v.id)}"><td colspan="4">${esc(v.name)}: ${esc(v.model.errors.join(' · '))}</td></tr>`;
+    const p = packer.peek(v);
+    if (!p) return `<tr class="${on}" data-van="${esc(v.id)}"><td>${esc(v.name)}<div class="muted">${v.model.container.L}×${v.model.container.W}×${v.model.container.H} cm</div></td><td colspan="3" class="muted">packing…</td></tr>`;
+    const s = p.stats, spare = s.payloadKg - s.allKg;
     const missing = groupUnplaced(p.unplaced).map((u) => `${u.count > 1 ? u.count + '× ' : ''}${esc(u.name)}`).join(', ');
-    rows.push(`<tr class="${v.id === S.plan.container.id ? 'on' : ''}"><td>${esc(v.name)}<div class="muted">${p.container.L}×${p.container.W}×${p.container.H} cm</div></td>
+    return `<tr class="${on}" data-van="${esc(v.id)}"><td>${esc(v.name)}<div class="muted">${p.container.L}×${p.container.W}×${p.container.H} cm</div></td>
       <td class="${s.unplaced ? 'bad' : ''}">${s.placed}/${s.pieces}${missing ? `<div class="muted">missing: ${missing}</div>` : ''}</td>
       <td>${s.volumePct}%<div class="muted">of ${s.usableM3} m³</div></td>
-      <td class="${spare < 0 ? 'bad' : ''}">${spare < 0 ? `${-spare} kg over` : `${spare} kg spare`}<div class="muted">${s.allKg} / ${s.payloadKg} kg${p.container.subtractPassenger ? '' : esc(paxNote(p.container, s.allKg))}</div></td></tr>`);
-  }
-  $('#compare').innerHTML = `<table class="compare"><tr><th>Van</th><th>Placed</th><th>Volume</th><th>Weight (all items)</th></tr>${rows.join('')}</table>`;
+      <td class="${spare < 0 ? 'bad' : ''}">${spare < 0 ? `${-spare} kg over` : `${spare} kg spare`}<div class="muted">${s.allKg} / ${s.payloadKg} kg${p.container.subtractPassenger ? '' : esc(paxNote(p.container, s.allKg))}</div></td></tr>`;
+  });
+  el.innerHTML = `<table class="compare"><tr><th>Van</th><th>Placed</th><th>Volume</th><th>Weight (all items)</th></tr>${rows.join('')}</table>`;
 }
 
 function renderItems() {
@@ -388,10 +431,7 @@ $('#add-item').onclick = () => {
   name.select();
 };
 $('#filter').addEventListener('input', applyFilter);
-$('#van').addEventListener('change', (e) => {
-  S.raw.container.active = e.target.value;
-  markDirty('container');
-});
+$('#van').addEventListener('change', (e) => switchVan(e.target.value));
 $('#tab-report').addEventListener('change', (e) => {
   const id = e.target.dataset.mix;
   if (!id) return;
@@ -400,10 +440,8 @@ $('#tab-report').addEventListener('change', (e) => {
   markDirty('items');
 });
 $('#tab-report').addEventListener('click', (e) => {
-  if (e.target.id !== 'compare-btn') return;
-  e.target.disabled = true;
-  e.target.textContent = 'Packing…';
-  setTimeout(renderComparison, 20);
+  const row = e.target.closest('tr[data-van]');
+  if (row && row.dataset.van !== currentVan()) switchVan(row.dataset.van);
 });
 $('#sort').addEventListener('change', renderItems);
 
