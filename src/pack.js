@@ -435,7 +435,8 @@ export function pack(model, opts = {}) {
   // the search goes on. The last size at which everything still fitted is the size margin of the plan.
   let marginPct = 0, evals = 0, level = 0, champion = null;
   const N = rigid.length;
-  const POP = 30, ELITE = 6, MUTANTS = 5, CP = 0.7, STEP = 0.005;
+  const ga = { pop: 30, elite: 6, mutants: 5, cp: 0.7, step: 0.0025, ...opts.ga }; // tuned on 4 seeds: larger or smaller populations were worse
+  const POP = ga.pop, ELITE = ga.elite, MUTANTS = ga.mutants, CP = ga.cp, STEP = ga.step;
   const rank = new Map(best.order.map((o, i) => [o, i / N]));
   const decode = (ind) => {
     const idx = rigid.map((_, k) => k).sort((a, b) => tier(rigid[a]) - tier(rigid[b]) || ind.key[a] - ind.key[b]);
@@ -473,7 +474,7 @@ export function pack(model, opts = {}) {
         if (!top) return;
         const real = level === 0 ? top : score(top.ind, 1);
         if (!real.perfect) { top.perfect = false; top.cost += 1e3; continue; }
-        champion = real; marginPct = Math.round(level * STEP * 1000) / 10;
+        champion = real; marginPct = Math.round(level * STEP * 10000) / 100;
         level++;
         if (level * STEP > 0.25) return;
         scored = scored.map((e) => score(e.ind, 1 + level * STEP));

@@ -122,6 +122,29 @@ The heuristic is about 300 lines, runs in milliseconds, and can explain every fa
    Any item can be switched between rigid and flex, in chat or as an in-browser what-if.
    This lets you decide what to put in boxes and what to pack loose into gaps.
 
+**Update 2026-10-27: genetic search and size margin.** The multi-start above is only phase 1 (the best
+start seeds the search). Phase 2 is a biased random-key genetic algorithm (Gonçalves & Resende 2012, with the
+maximal-space/extreme-point ideas of Parreño et al. and Crainic et al. for the decoder). A chromosome holds, per
+piece: a key (loading order inside its tier), a preferred rotation, a side (pushed against the right wall, so the
+long items can sit on both side walls) and a placement rule (`x`, `end`, `contact`), plus a global strategy.
+Population 30, 6 elite, 5 mutants, 70% of a child's genes from an elite parent.
+
+- **Objective:** *all pieces placed*, then *size margin*. Minimising the load length was the wrong target: once
+  everything fits it gives the search nothing to follow. Instead, whenever a plan places everything, all pieces are
+  made 0.25% bigger in each dimension and the search goes on (a ratchet); the last size at which everything
+  still fitted, and still fits at real size, is the **size margin** (`stats.marginPct`, reported and shown on
+  the page). Length only breaks ties.
+- **Budget:** `packing.evals` (default 600 packing runs, about 5 s) and `packing.maxMs` as a safety stop; the same
+  seed gives the same plan. The page packs in a worker (`src/worker.js`). Measured on 4–9 seeds: margin 0.6% at
+  200 runs, 0.9% at 300, 1.4% at 600, 1.7% at 2400; one long run beats several short ones.
+- **Flexible goods** may be split over several gaps (a topper can be folded).
+- **Verification:** `npm run verify` re-derives overlap, bounds, support, load limits, flags and weights from
+  scratch (it does not use the packer's geometry) for several seeds; it was mutation-tested.
+- **What did not help:** more runs (diminishing), a compaction stage that keeps the margin and shortens the load,
+  more or fewer individuals, best-of-several short runs. Relaxing any single rule gains at most ~2 points of
+  margin; the limit is the placement method and the shape of the pieces, so the biggest lever is making pieces
+  smaller (taking furniture apart) and measuring the low-confidence ones.
+
 **Report**
 - placed / total
 - unplaced items, each with a *reason*: `too large`, `door`, `payload`, `no space`, or
