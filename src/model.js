@@ -4,7 +4,7 @@
 export const FLAGS = ['upright', 'noRotate', 'floor', 'noTop', 'fragile', 'flex', 'nice', 'exclude'];
 export const CONF = { low: 0.2, med: 0.1, high: 0.03, measured: 0 }; // relative size uncertainty
 export const RULES = ['onFloor', 'upright', 'noRotate', 'noLoadOnTop', 'maxLoadOnTop', 'zone', 'loadGroup', 'exclude', 'flex', 'optional'];
-const FRAGILE_MAX_TOP_KG = 5;
+const FRAGILE_MAX_TOP_KG = 5; // default load limit of a fragile item; an explicit `maxTop` on the item replaces it
 
 const PACKING_DEFAULTS = {
   clearanceCm: 1,
@@ -100,7 +100,7 @@ export function resolveItems(itemsRaw, constraintsRaw) {
       upright: flags.has('upright'), noRotate: flags.has('noRotate'), floor: flags.has('floor'),
       fragile: flags.has('fragile'), flex: flags.has('flex'), exclude: flags.has('exclude'),
       priority: flags.has('nice') ? 'nice' : 'must',
-      maxTop: it.maxTop ?? Infinity,
+      maxTop: it.maxTop ?? (flags.has('fragile') ? FRAGILE_MAX_TOP_KG : Infinity),
       minSupport: it.minSupport, // share of the base that must rest on something; default from container.packing
       maxHeight: it.maxHeight, // cm, highest allowed top edge (e.g. keep boxes low enough for bikes on top)
       zone: null, loadGroup: null, constraintIds: [],
@@ -124,7 +124,6 @@ export function resolveItems(itemsRaw, constraintsRaw) {
         }
       }
     }
-    if (r.fragile) r.maxTop = Math.min(r.maxTop, FRAGILE_MAX_TOP_KG);
     return r;
   });
 }

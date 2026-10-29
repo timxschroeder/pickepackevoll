@@ -200,7 +200,7 @@ Compact, one item per line, so it is easy to edit by hand:
   safety margin used for packing.
 - `guess` is the original estimate. It is added automatically when you change the size or
   weight of an estimated item, and never deleted.
-- `flags`: upright, noRotate, floor, noTop, fragile, flex, nice (optional item), exclude
+- `flags`: upright (keep the given height vertical; may still turn in plan), noRotate, floor, noTop, fragile (default: at most 5 kg on top, unless the item has its own `maxTop`), flex, nice (optional item), exclude
   (leave it out). Optional `maxTop` sets the kg allowed on top.
 - **Items are listed as packed.** Furniture you take apart becomes several items that
   share a `group`. The view colors each group in one hue.
