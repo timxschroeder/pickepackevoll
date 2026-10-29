@@ -1,0 +1,105 @@
+name: CI and deploy
+
+# Stage 1  verify    every push: independent physics check of the packing plans, plus a build smoke test
+# Stage 2  staging   main only: static page to <site>/staging/ (automatic)
+# Stage 3  production main only: same build to <site>/, after a manual approval. Required reviewers on the
+#          environment need a paid GitHub plan for private repos, so by default the approval is a manual run:
+#          Actions → "CI and deploy" → Run workflow on main with "promote" ticked. With reviewers configured
+#          on the "production" environment, set the variable PRODUCTION_APPROVAL=environment and every push
+#          waits for that approval instead.
+# Stages 2 and 3 stay off until the repository variable DEPLOY_PAGES is "true" (see DEPLOY.md):
+# a Pages site is public, and the page contains the household inventory.
+
+on:
+  push:
+  workflow_dispatch:
+    inputs:
+      promote:
+        description: Promote this commit to production (stage 3)
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: 1 · verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run verify
+      - name: Build smoke test
+        run: node tools/build-site.mjs
+
+  build:
+    name: build site
+    needs: verify
+    if: github.ref == 'refs/heads/main' && vars.DEPLOY_PAGES == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: node tools/build-site.mjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: site
+          path: dist
+          include-hidden-files: true
+          retention-days: 7
+
+  staging:
+    name: 2 · staging
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: staging
+      url: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/staging/
+    permissions:
+      contents: write
+    concurrency:
+      group: pages-staging
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: site
+          path: dist
+      - run: bash tools/publish-pages.sh staging
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  production:
+    name: 3 · production
+    needs: staging
+    if: (github.event_name == 'workflow_dispatch' && inputs.promote) || vars.PRODUCTION_APPROVAL == 'environment'
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/
+    permissions:
+      contents: write
+    concurrency:
+      group: pages-production
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: site
+          path: dist
+      - run: bash tools/publish-pages.sh production
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
