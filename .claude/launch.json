@@ -1,6 +1,7 @@
 {
   "version": "0.0.1",
   "configurations": [
-    { "name": "pickepackevoll", "runtimeExecutable": "node", "runtimeArgs": ["serve.mjs"], "port": 8642 }
+    { "name": "pickepackevoll", "runtimeExecutable": "node", "runtimeArgs": ["serve.mjs"], "port": 8642 },
+    { "name": "pickepackevoll-worktree", "runtimeExecutable": "node", "runtimeArgs": ["serve.mjs", "8643"], "port": 8643 }
   ]
 }
