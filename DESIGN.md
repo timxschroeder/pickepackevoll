@@ -242,6 +242,7 @@ Compact, one item per line, so it is easy to edit by hand:
 | `noLoadOnTop` | nothing goes on top of it |
 | `maxLoadOnTop {kg}` | at most this much weight on top |
 | `zone {end: "cab"\|"door", withinCm}` | the item sits within this distance of the cab or the door |
+| `maxHeight {cm}` or `{belowRoofCm}` | highest allowed top edge from the floor, or keep that much free under the roof (adapts to each van; e.g. a deck for bikes lying on top) |
 | `loadGroup {n}` | packing group; 1 = loaded first, at the cab end |
 | `exclude` | the item is not packed (e.g. shipped separately) |
 

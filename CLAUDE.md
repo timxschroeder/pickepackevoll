@@ -19,7 +19,7 @@ Van-packing tool for a move Hamburg → Zürich in a rented VW Crafter. Design: 
 - **Correction** ("the table top is 210 × 95"): update `dims`/`kg`, set `conf: "measured"`, and keep the previous guess in `guess: { dims, kg, conf }` (only if no `guess` exists yet).
 - **Rule in plain language** ("bikes go in last, near the door"): per-item physics (upright, on floor, nothing on top, fragile) → item `flags`; placement and order rules → a new entry in `constraints.json` with `text` (the user's sentence), `target`, `rules`, and `hard: false` when it is a preference. Echo the structured rule back in one line; ask if the target is ambiguous.
 - After every data change: run `npm run pack` and report the essentials (placed, unplaced + reasons, size margin, weight vs payload, notable diff). Taking furniture apart = several items with the same `group`.
-- Rule types: onFloor, upright, noRotate, noLoadOnTop, maxLoadOnTop {kg}, zone {end: cab|door, withinCm}, loadGroup {n} (1 = loaded first), exclude, flex, optional (packed after all must-have items, dropped first).
+- Rule types: onFloor, upright, noRotate, noLoadOnTop, maxLoadOnTop {kg}, maxHeight {cm | belowRoofCm}, zone {end: cab|door, withinCm}, loadGroup {n} (1 = loaded first), exclude, flex, optional (packed after all must-have items, dropped first). A rule `target` is `{items|groups|tags}` or `{all: true, except: {...}}`.
 
 ## Version control
 - Commit after every step and iteration (code, data, docs), directly on `main`, with a descriptive message. No need to ask.

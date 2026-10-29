@@ -190,6 +190,7 @@ function packOnce(order, C, policyName, runMode, opt = {}) {
     if (b.x + b.dx > C.L + EPS || b.y + b.dy > C.W + EPS || b.z + b.dz > C.H + EPS) return null;
     if (it.floor && b.z > EPS) return null;
     if (it.maxHeight != null && b.z + b.dz > it.maxHeight + EPS) return null;
+    if (it.roofGapCm != null && b.z + b.dz > C.H - it.roofGapCm + EPS) return null;
     if (it.zone?.hard && zoneViolation(it.zone, b, C) > EPS) return null;
     for (const o of boxes) if (boxesOverlap(b, o)) return null;
     const supporters = [];
