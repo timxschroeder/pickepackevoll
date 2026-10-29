@@ -1,0 +1,8 @@
+{
+  "_help": "User rules: original sentence in 'text' + structured 'rules'. target: { items: [ids] } | { groups: [names] } | { tags: [...] }. rule types: onFloor, upright, noRotate, noLoadOnTop, maxLoadOnTop {kg}, zone {end: cab|door, withinCm}, loadGroup {n} (1 = loaded first, cab end), exclude, flex, optional (packed after all must-have items, dropped first). 'hard': false makes a zone a preference instead of a must.",
+  "constraints": [
+    { "id": "c1", "text": "Boxes go last: fit the non-box items first, then fill the rest with boxes and bags. Boxes are the first thing we take out if there isn't enough space.", "target": { "groups": ["Kartons"] }, "rules": [{ "type": "optional" }], "active": false, "added": "2026-10-11" },
+    { "id": "c2", "text": "We would lay the bikes on top of the load.", "target": { "groups": ["Fahrräder"] }, "rules": [{ "type": "loadGroup", "n": 99 }], "active": false, "note": "switched off 2026-10-15: bikes and boxes can be packed any way", "added": "2026-10-11" },
+    { "id": "c3", "text": "We should start with the large items on the side.", "target": { "items": ["vitrine-base", "vitrine-top", "bed-base", "bed-headboard", "table-top", "piano-keys", "piano-stand"] }, "rules": [{ "type": "loadGroup", "n": 1 }], "active": false, "note": "switched off 2026-10-27: forcing these first loses 1-2 pieces (71/73 instead of 72/73); 'on the side' (along the walls) is not a rule type yet, only the loading order", "added": "2026-10-27" }
+  ]
+}

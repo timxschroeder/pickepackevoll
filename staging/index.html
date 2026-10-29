@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Pickepackevoll</title>
+  <link rel="stylesheet" href="style.css">
+  <script type="importmap">
+    { "imports": { "three": "./vendor/three/build/three.module.js", "three/addons/": "./vendor/three/examples/jsm/" } }
+  </script>
+</head>
+<body>
+  <header>
+    <div class="brand"><h1>Pickepackevoll</h1>
+      <select id="van" title="Which van to look at (remembered in this browser; the default is `active` in container.json)"></select>
+      <span id="van-name" class="muted"></span></div>
+    <div id="stats" class="stats"></div>
+  </header>
+  <div id="banner" class="banner" hidden></div>
+  <main>
+    <section class="stage">
+      <div id="viewport"></div>
+      <div id="packing" class="packing" hidden>Packing this van…</div>
+      <div id="tooltip" class="tooltip" hidden></div>
+      <div class="controls">
+        <label class="step">Load step
+          <input id="step" type="range" min="0" value="0" step="1">
+          <span id="step-label" class="muted"></span>
+        </label>
+        <div class="toggles">
+          <label><input type="checkbox" id="opt-gaps"> Gaps</label>
+          <label><input type="checkbox" id="opt-estimates" checked> Mark estimates</label>
+          <label><input type="checkbox" id="opt-labels" checked> Labels</label>
+          <label><input type="checkbox" id="opt-unplaced" checked> Not placed</label>
+          <span class="cams">
+            <button data-cam="3d">3D</button><button data-cam="door">Door</button><button data-cam="top">Top</button><button data-cam="side">Side</button>
+          </span>
+        </div>
+      </div>
+    </section>
+    <aside>
+      <nav class="tabs">
+        <button data-tab="report" class="on">Report</button>
+        <button data-tab="items">Items <span id="item-count" class="muted"></span></button>
+        <button data-tab="rules">Rules <span id="rule-count" class="muted"></span></button>
+      </nav>
+      <div id="tab-report" class="tab"></div>
+      <div id="tab-items" class="tab" hidden>
+        <div class="toolbar">
+          <input id="filter" type="search" placeholder="Filter items">
+          <select id="sort" title="Sort order of the list (the data file keeps its order)">
+            <option value="file">Order: file</option>
+            <option value="total">Heaviest total (kg × qty)</option>
+            <option value="piece">Heaviest piece</option>
+          </select>
+          <button id="add-item">Add item</button>
+        </div>
+        <div id="item-list"></div>
+      </div>
+      <div id="tab-rules" class="tab" hidden></div>
+      <div id="savebar" class="savebar" hidden>
+        <span id="save-status">Unsaved changes</span>
+        <button id="discard">Discard</button>
+        <button id="save" class="primary">Save</button>
+      </div>
+    </aside>
+  </main>
+  <script type="module" src="src/app.js"></script>
+</body>
+</html>
