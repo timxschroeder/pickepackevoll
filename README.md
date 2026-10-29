@@ -12,4 +12,4 @@ npm run pack     # text report in the terminal
 - Rules in plain language: tell Claude; they land in `data/constraints.json`.
 - Van dimensions and packing parameters: `data/container.json`.
 
-Design and decisions: [DESIGN.md](DESIGN.md). Working rules for the assistant: [CLAUDE.md](CLAUDE.md).
+Deployment (CI, staging, production): [DEPLOY.md](DEPLOY.md). Design and decisions: [DESIGN.md](DESIGN.md). Working rules for the assistant: [CLAUDE.md](CLAUDE.md).

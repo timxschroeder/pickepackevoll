@@ -5,6 +5,7 @@ Van-packing tool for a move Hamburg → Zürich in a rented VW Crafter. Design: 
 ## Run
 - Page: `npm start` → http://localhost:8642 (static server + saving of `data/*.json`). The page re-packs on its own when data files change.
 - Verify: `npm run verify` (`node tools/verify.mjs --seeds 1,2,3`) packs for several seeds and checks every plan with independent physics (overlap, bounds, support, load limits, flags, weights). Run it after changing the packer.
+- CI: `.github/workflows/ci.yml` runs `npm run verify` on every push; Pages deploy stages are off unless the repo variable `DEPLOY_PAGES` is set (public site, see DEPLOY.md). `node tools/build-site.mjs` builds the static copy into `dist/`.
 - Report: `npm run pack` (= `node tools/pack.mjs`) prints stats, unplaced items with reasons, warnings and a diff to the previous run; writes `out/plan.json`. `npm run pack -- --compare` adds one line per van; `--van <id>` packs another van.
 
 ## Data (the only files that change during normal use)
