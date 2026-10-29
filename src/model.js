@@ -3,8 +3,8 @@
 
 export const FLAGS = ['upright', 'noRotate', 'floor', 'noTop', 'fragile', 'flex', 'nice', 'exclude'];
 export const CONF = { low: 0.2, med: 0.1, high: 0.03, measured: 0 }; // relative size uncertainty
-export const RULES = ['onFloor', 'upright', 'noRotate', 'noLoadOnTop', 'maxLoadOnTop', 'zone', 'loadGroup', 'exclude', 'flex', 'optional'];
-const FRAGILE_MAX_TOP_KG = 5;
+export const RULES = ['onFloor', 'upright', 'noRotate', 'noLoadOnTop', 'maxLoadOnTop', 'maxHeight', 'minHeight', 'zone', 'loadGroup', 'exclude', 'flex', 'optional'];
+const FRAGILE_MAX_TOP_KG = 5; // default load limit of a fragile item; an explicit `maxTop` on the item replaces it
 
 const PACKING_DEFAULTS = {
   clearanceCm: 1,
@@ -82,8 +82,10 @@ export function validate(containerRaw, itemsRaw, constraintsRaw) {
   return { errors, warnings };
 }
 
+// target: { items, groups, tags } or { all: true, except: { items, groups, tags } } (every item but those)
 function matches(target, it) {
   if (!target) return false;
+  if (target.all) return !matches(target.except, it);
   return (target.items ?? []).includes(it.id)
     || (target.groups ?? []).includes(it.group)
     || (target.tags ?? []).some((t) => (it.tags ?? []).includes(t));
@@ -100,8 +102,10 @@ export function resolveItems(itemsRaw, constraintsRaw) {
       upright: flags.has('upright'), noRotate: flags.has('noRotate'), floor: flags.has('floor'),
       fragile: flags.has('fragile'), flex: flags.has('flex'), exclude: flags.has('exclude'),
       priority: flags.has('nice') ? 'nice' : 'must',
-      maxTop: it.maxTop ?? Infinity,
+      maxTop: it.maxTop ?? (flags.has('fragile') ? FRAGILE_MAX_TOP_KG : Infinity),
       minSupport: it.minSupport, // share of the base that must rest on something; default from container.packing
+      minHeight: null,
+      roofGapCm: null, // free space to keep under the roof, from a maxHeight rule
       maxHeight: it.maxHeight, // cm, highest allowed top edge (e.g. keep boxes low enough for bikes on top)
       zone: null, loadGroup: null, constraintIds: [],
     };
@@ -116,6 +120,11 @@ export function resolveItems(itemsRaw, constraintsRaw) {
           case 'noRotate': r.noRotate = true; break;
           case 'noLoadOnTop': r.maxTop = 0; break;
           case 'maxLoadOnTop': r.maxTop = Math.min(r.maxTop, rule.kg); break;
+          case 'minHeight': r.minHeight = Math.max(r.minHeight ?? 0, rule.cm); break; // lowest allowed bottom edge: not on the floor, on top of other things
+          case 'maxHeight': // cm from the floor, or belowRoofCm: keep that much free under the roof (adapts to each van)
+            if (rule.cm != null) r.maxHeight = Math.min(r.maxHeight ?? Infinity, rule.cm);
+            if (rule.belowRoofCm != null) r.roofGapCm = Math.max(r.roofGapCm ?? 0, rule.belowRoofCm);
+            break;
           case 'zone': r.zone = { end: rule.end, withinCm: rule.withinCm, hard: c.hard !== false, cid: c.id }; break;
           case 'loadGroup': r.loadGroup = rule.n; break;
           case 'exclude': r.exclude = true; break;
@@ -124,7 +133,6 @@ export function resolveItems(itemsRaw, constraintsRaw) {
         }
       }
     }
-    if (r.fragile) r.maxTop = Math.min(r.maxTop, FRAGILE_MAX_TOP_KG);
     return r;
   });
 }
