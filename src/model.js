@@ -3,7 +3,7 @@
 
 export const FLAGS = ['upright', 'noRotate', 'floor', 'noTop', 'fragile', 'flex', 'nice', 'exclude'];
 export const CONF = { low: 0.2, med: 0.1, high: 0.03, measured: 0 }; // relative size uncertainty
-export const RULES = ['onFloor', 'upright', 'noRotate', 'noLoadOnTop', 'maxLoadOnTop', 'maxHeight', 'zone', 'loadGroup', 'exclude', 'flex', 'optional'];
+export const RULES = ['onFloor', 'upright', 'noRotate', 'noLoadOnTop', 'maxLoadOnTop', 'maxHeight', 'minHeight', 'zone', 'loadGroup', 'exclude', 'flex', 'optional'];
 const FRAGILE_MAX_TOP_KG = 5; // default load limit of a fragile item; an explicit `maxTop` on the item replaces it
 
 const PACKING_DEFAULTS = {
@@ -104,6 +104,7 @@ export function resolveItems(itemsRaw, constraintsRaw) {
       priority: flags.has('nice') ? 'nice' : 'must',
       maxTop: it.maxTop ?? (flags.has('fragile') ? FRAGILE_MAX_TOP_KG : Infinity),
       minSupport: it.minSupport, // share of the base that must rest on something; default from container.packing
+      minHeight: null,
       roofGapCm: null, // free space to keep under the roof, from a maxHeight rule
       maxHeight: it.maxHeight, // cm, highest allowed top edge (e.g. keep boxes low enough for bikes on top)
       zone: null, loadGroup: null, constraintIds: [],
@@ -119,6 +120,7 @@ export function resolveItems(itemsRaw, constraintsRaw) {
           case 'noRotate': r.noRotate = true; break;
           case 'noLoadOnTop': r.maxTop = 0; break;
           case 'maxLoadOnTop': r.maxTop = Math.min(r.maxTop, rule.kg); break;
+          case 'minHeight': r.minHeight = Math.max(r.minHeight ?? 0, rule.cm); break; // lowest allowed bottom edge: not on the floor, on top of other things
           case 'maxHeight': // cm from the floor, or belowRoofCm: keep that much free under the roof (adapts to each van)
             if (rule.cm != null) r.maxHeight = Math.min(r.maxHeight ?? Infinity, rule.cm);
             if (rule.belowRoofCm != null) r.roofGapCm = Math.max(r.roofGapCm ?? 0, rule.belowRoofCm);

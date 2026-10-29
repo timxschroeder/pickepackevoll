@@ -38,6 +38,7 @@ function zoneViolation(zone, b, C) {
 function describeLimits(it) {
   const s = [];
   if (it.floor) s.push('on the floor');
+  if (it.minHeight) s.push(`at least ${it.minHeight} cm above the floor`);
   if (it.upright) s.push('not tipped over');
   if (it.noRotate) s.push('no rotation');
   if (it.zone?.hard) s.push(`within ${it.zone.withinCm} cm of the ${it.zone.end}`);
@@ -190,6 +191,7 @@ function packOnce(order, C, policyName, runMode, opt = {}) {
     if (b.x + b.dx > C.L + EPS || b.y + b.dy > C.W + EPS || b.z + b.dz > C.H + EPS) return null;
     if (it.floor && b.z > EPS) return null;
     if (it.maxHeight != null && b.z + b.dz > it.maxHeight + EPS) return null;
+    if (it.minHeight != null && b.z < it.minHeight - EPS) return null;
     if (it.roofGapCm != null && b.z + b.dz > C.H - it.roofGapCm + EPS) return null;
     if (it.zone?.hard && zoneViolation(it.zone, b, C) > EPS) return null;
     for (const o of boxes) if (boxesOverlap(b, o)) return null;

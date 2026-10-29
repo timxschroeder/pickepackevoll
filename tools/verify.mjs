@@ -38,6 +38,7 @@ export function verifyPlan(plan, model) {
     if (it.noRotate && !(Math.abs(b.dx - pd[0]) < 0.11 && Math.abs(b.dy - pd[1]) < 0.11 && Math.abs(b.dz - pd[2]) < 0.11)) fail(b.uid, 'noRotate piece is rotated');
     if (it.floor && b.z > T) fail(b.uid, `must be on the floor, is at z=${b.z}`);
     if (it.maxHeight != null && b.z1 > it.maxHeight + T) fail(b.uid, `top edge ${b.z1} above maxHeight ${it.maxHeight}`);
+    if (it.minHeight != null && b.z < it.minHeight - T) fail(b.uid, `bottom edge ${b.z} below minHeight ${it.minHeight}`);
     if (it.roofGapCm != null && b.z1 > C.H - it.roofGapCm + T) fail(b.uid, `top edge ${b.z1} leaves less than ${it.roofGapCm} cm under the roof`);
     for (const o of obst) if (overlap1(b.x, b.x1, o.x, o.x1) > T && overlap1(b.y, b.y1, o.y, o.y1) > T && overlap1(b.z, b.z1, o.z, o.z1) > T) fail(b.uid, `inside ${o.name}`);
   }
